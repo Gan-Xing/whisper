@@ -1,6 +1,6 @@
 // app/components/RealTimeTranscription.tsx
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 
 interface Transcript {
   type: string;
@@ -9,16 +9,16 @@ interface Transcript {
 
 const RealTimeTranscription: React.FC = () => {
   const [recording, setRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  const [transcript, setTranscript] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:3001');
+    const ws = new WebSocket("ws://localhost:3001");
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
-      if (data.type === 'transcription') {
+      if (data.type === "transcription") {
         setTranscript(data.text);
       }
     };
@@ -27,7 +27,9 @@ const RealTimeTranscription: React.FC = () => {
     const startRecording = async () => {
       setRecording(true);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start(1000);
 
@@ -38,7 +40,12 @@ const RealTimeTranscription: React.FC = () => {
           reader.onloadend = () => {
             const base64data = reader.result as string;
             if (base64data) {
-              socketRef.current!.send(JSON.stringify({ type: 'audio', audio: base64data.split(',')[1] }));
+              socketRef.current!.send(
+                JSON.stringify({
+                  type: "audio",
+                  audio: base64data.split(",")[1],
+                })
+              );
             }
           };
         }
@@ -47,9 +54,9 @@ const RealTimeTranscription: React.FC = () => {
       mediaRecorder.onstop = () => {
         setRecording(false);
         if (socketRef.current) {
-          socketRef.current.send(JSON.stringify({ type: 'stop' }));
+          socketRef.current.send(JSON.stringify({ type: "stop" }));
         }
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       // Set timeout to stop recording after 15 seconds
@@ -81,15 +88,26 @@ const RealTimeTranscription: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h1>Real-Time Transcription</h1>
       <div>
-        <p>Recording: {recording ? 'Yes' : 'No'}</p>
-        <button onClick={stopRecording} disabled={!recording}>Stop Recording</button>
+        <p>Recording: {recording ? "Yes" : "No"}</p>
+        <button onClick={stopRecording} disabled={!recording}>
+          Stop Recording
+        </button>
       </div>
-      <div style={{ marginTop: '20px' }}>
+      <div style={{ marginTop: "20px" }}>
         <h2>Transcribed Text:</h2>
-        <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f1f1f1', padding: '10px', borderRadius: '5px' }}>{transcript}</p>
+        <p
+          style={{
+            whiteSpace: "pre-wrap",
+            backgroundColor: "#f1f1f1",
+            padding: "10px",
+            borderRadius: "5px",
+          }}
+        >
+          {transcript}
+        </p>
       </div>
     </div>
   );
