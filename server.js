@@ -60,6 +60,7 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({ type: 'transcription', text: transcription.text }));
             } catch (error) {
                 console.error(error);
+                fs.unlinkSync(filePath); // 确保在发生错误时也删除文件
                 ws.send(JSON.stringify({ type: 'error', message: 'Error transcribing audio' }));
             }
         }
