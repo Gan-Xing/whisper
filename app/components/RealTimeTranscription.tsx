@@ -12,6 +12,7 @@ const RealTimeTranscription: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:3001');
@@ -50,6 +51,11 @@ const RealTimeTranscription: React.FC = () => {
         }
         stream.getTracks().forEach(track => track.stop());
       };
+
+      // Set timeout to stop recording after 15 seconds
+      timeoutRef.current = setTimeout(() => {
+        mediaRecorder.stop();
+      }, 15000);
     };
 
     startRecording();
@@ -59,12 +65,18 @@ const RealTimeTranscription: React.FC = () => {
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current.stop();
       }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, []);
 
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
   };
 
