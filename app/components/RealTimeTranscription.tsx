@@ -17,7 +17,7 @@ const RealTimeTranscription: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
-        const ws = new WebSocket('ws://localhost:3001');
+        const ws = new WebSocket('wss://whisper.ganxing.fun');
         ws.onmessage = (event) => {
             const data: Transcript = JSON.parse(event.data);
             if (data.type === 'transcription') {
