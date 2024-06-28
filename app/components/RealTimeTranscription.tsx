@@ -33,9 +33,20 @@ const RealTimeTranscription: React.FC = () => {
         setStatus("转录成功");
       } else if (data.type === "error") {
         setStatus(`错误: ${data.message}`);
+      } else if (data.type === "pong") {
+        setStatus("收到服务器的pong");
       }
     };
-    ws.onopen = () => setStatus("WebSocket 连接已建立");
+    ws.onopen = () => {
+      setStatus("WebSocket 连接已建立");
+      socketRef.current = ws;
+      const pingInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 10000); // 每50秒发送一次ping
+      return () => clearInterval(pingInterval);
+    };
     ws.onclose = () => setStatus("WebSocket 连接已关闭");
     socketRef.current = ws;
     return () => ws.close();

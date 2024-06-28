@@ -30,6 +30,14 @@ const wss = new WebSocketServer({ server });
 wss.on('connection', (ws) => {
     console.log('客户端已连接');
     let audioBuffer = [];
+
+    // 心跳机制
+    const interval = setInterval(() => {
+        if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 50000); // 每50秒发送一次心跳
+
     ws.on('message', async (message) => {
         const data = JSON.parse(message);
         if (data.type === 'audio') {
@@ -55,10 +63,13 @@ wss.on('connection', (ws) => {
         } else if (data.type === 'stop') {
             audioBuffer = [];
             console.log('录音已停止，缓冲区已清空');
+        } else if (data.type === 'pong') {
+            console.log('Received pong from client');
         }
     });
 
     ws.on('close', () => {
+        clearInterval(interval); // 关闭连接时清除心跳定时器
         console.log('客户端已断开连接');
     });
 });
