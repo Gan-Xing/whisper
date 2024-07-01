@@ -18,18 +18,19 @@ interface Transcript {
 
 const RealTimeTranscription: React.FC = () => {
   const [recording, setRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
+  const [messages, setMessages] = useState<string[]>([]);
   const [status, setStatus] = useState("");
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const audioBufferRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     const ws = new WebSocket("wss://whisper.ganxing.fun");
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
       if (data.type === "transcription") {
-        setTranscript(data.text);
+        setMessages((prevMessages) => [...prevMessages, data.text]);
         setStatus("转录成功");
       } else if (data.type === "error") {
         setStatus(`错误: ${data.message}`);
@@ -44,7 +45,7 @@ const RealTimeTranscription: React.FC = () => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "ping" }));
         }
-      }, 10000); // 每50秒发送一次ping
+      }, 5000); // 每5秒发送一次ping
       return () => clearInterval(pingInterval);
     };
     ws.onclose = () => setStatus("WebSocket 连接已关闭");
@@ -58,27 +59,30 @@ const RealTimeTranscription: React.FC = () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;
+    audioBufferRef.current = [];
     mediaRecorder.start();
     setStatus("录音中");
 
     mediaRecorder.ondataavailable = (event) => {
-      if (socketRef.current) {
-        const reader = new FileReader();
-        reader.readAsDataURL(event.data);
-        reader.onloadend = () => {
-          const base64data = reader.result as string;
-          if (base64data) {
-            socketRef.current!.send(
-              JSON.stringify({ type: "audio", audio: base64data.split(",")[1] })
-            );
-            setStatus("音频数据已发送到服务器");
-          }
-        };
+      if (event.data.size > 0) {
+        audioBufferRef.current.push(event.data);
       }
     };
 
     mediaRecorder.onstop = () => {
       setRecording(false);
+      const audioBlob = new Blob(audioBufferRef.current, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        if (base64data && socketRef.current) {
+          socketRef.current.send(
+            JSON.stringify({ type: "audio", audio: base64data.split(",")[1] })
+          );
+          setStatus("音频数据已发送到服务器");
+        }
+      };
       stream.getTracks().forEach((track) => track.stop());
       setStatus("录音已停止");
     };
@@ -133,7 +137,7 @@ const RealTimeTranscription: React.FC = () => {
         </Typography>
         <Paper elevation={3} sx={{ padding: 2, backgroundColor: "#f1f1f1" }}>
           <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-            {transcript}
+            {messages.join('\n')}
           </Typography>
         </Paper>
       </Box>
