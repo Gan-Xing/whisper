@@ -150,7 +150,7 @@ async function transcribeChunk(chunkFilePath, ws) {
         formData.append('file', fs.createReadStream(chunkFilePath));
         formData.append('model', 'Systran/faster-whisper-large-v3');
         formData.append('language', 'zh');
-        formData.append('response_format', 'verbose_json');
+        formData.append('response_format', 'json');
         formData.append('temperature', '0');
 
         const response = await fetch('http://172.16.2.68:8000/v1/audio/transcriptions', {
