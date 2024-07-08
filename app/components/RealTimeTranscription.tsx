@@ -26,7 +26,7 @@ const RealTimeTranscription: React.FC = () => {
   const audioBufferRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    const ws = new WebSocket("wss://whisper.ganxing.fun");
+    const ws = new WebSocket("ws://localhost:3001");
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
       if (data.type === "transcription") {
@@ -78,7 +78,14 @@ const RealTimeTranscription: React.FC = () => {
         const base64data = reader.result as string;
         if (base64data && socketRef.current) {
           socketRef.current.send(
-            JSON.stringify({ type: "audio", audio: base64data.split(",")[1] })
+            JSON.stringify({
+              type: "audio",
+              audio: base64data.split(",")[1],
+              model: 'Systran/faster-whisper-large-v3',
+              language: 'zh',
+              response_format: 'json',
+              temperature: '0'
+            })
           );
           setStatus("音频数据已发送到服务器");
         }
@@ -105,7 +112,14 @@ const RealTimeTranscription: React.FC = () => {
         const base64data = reader.result as string;
         if (base64data) {
           socketRef.current!.send(
-            JSON.stringify({ type: "upload", audio: base64data.split(",")[1] })
+            JSON.stringify({
+              type: "upload",
+              audio: base64data.split(",")[1],
+              model: 'Systran/faster-whisper-large-v3',
+              language: 'zh',
+              response_format: 'json',
+              temperature: '0'
+            })
           );
           setStatus("文件数据已发送到服务器");
         }

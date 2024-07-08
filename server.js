@@ -41,6 +41,11 @@ wss.on('connection', (ws) => {
 
     ws.on('message', async (message) => {
         const data = JSON.parse(message);
+        const model = data.model || 'Systran/faster-whisper-large-v3';
+        const language = data.language || 'zh';
+        const responseFormat = data.response_format || 'json';
+        const temperature = data.temperature || '0';
+
         if (data.type === 'audio') {
             const buffer = Buffer.from(data.audio, 'base64');
             audioBuffer.push(buffer);
@@ -50,7 +55,7 @@ wss.on('connection', (ws) => {
             fs.writeFileSync(filePath, buffer);
             console.log(`音频文件已保存到 ${filePath}`);
 
-            await convertToWavAndSplit(filePath, ws);
+            await convertToWavAndSplit(filePath, ws, model, language, responseFormat, temperature);
         } else if (data.type === 'upload') {
             const buffer = Buffer.from(data.audio, 'base64');
             const filePath = `uploads/uploaded_audio_${Date.now()}.webm`;
@@ -58,7 +63,7 @@ wss.on('connection', (ws) => {
             fs.writeFileSync(filePath, buffer);
             console.log(`上传的音频文件已保存到 ${filePath}`);
 
-            await convertToWavAndSplit(filePath, ws);
+            await convertToWavAndSplit(filePath, ws, model, language, responseFormat, temperature);
         } else if (data.type === 'stop') {
             audioBuffer = [];
             console.log('录音已停止，缓冲区已清空');
@@ -73,7 +78,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-async function convertToWavAndSplit(filePath, ws) {
+async function convertToWavAndSplit(filePath, ws, model, language, responseFormat, temperature) {
     const wavFilePath = filePath.replace(path.extname(filePath), '.wav');
     const outputDir = path.join(__dirname, 'uploads', 'chunks');
 
@@ -87,7 +92,7 @@ async function convertToWavAndSplit(filePath, ws) {
         });
         console.log(`音频文件已转换为 WAV: ${wavFilePath}`);
 
-        const pythonProcess = spawn('python', ['split_audio_vad.py', wavFilePath, outputDir,'60']);
+        const pythonProcess = spawn('python', ['split_audio_vad.py', wavFilePath, outputDir, '60']);
         const chunkQueue = [];
 
         pythonProcess.stdout.on('data', (data) => {
@@ -115,7 +120,7 @@ async function convertToWavAndSplit(filePath, ws) {
 
             while (chunkQueue.length > 0) {
                 const chunkFilePath = chunkQueue.shift();
-                await transcribeChunk(chunkFilePath, ws);
+                await transcribeChunk(chunkFilePath, ws, model, language, responseFormat, temperature);
                 try {
                     fs.unlinkSync(chunkFilePath);
                     console.log(`已删除临时文件: ${chunkFilePath}`);
@@ -144,14 +149,14 @@ async function convertToWavAndSplit(filePath, ws) {
     }
 }
 
-async function transcribeChunk(chunkFilePath, ws) {
+async function transcribeChunk(chunkFilePath, ws, model, language, responseFormat, temperature) {
     try {
         const formData = new FormData();
         formData.append('file', fs.createReadStream(chunkFilePath));
-        formData.append('model', 'Systran/faster-whisper-large-v3');
-        formData.append('language', 'zh');
-        formData.append('response_format', 'json');
-        formData.append('temperature', '0');
+        formData.append('model', model);
+        formData.append('language', language);
+        formData.append('response_format', responseFormat);
+        formData.append('temperature', temperature);
 
         const response = await fetch('http://172.16.2.68:8000/v1/audio/transcriptions', {
             method: 'POST',
