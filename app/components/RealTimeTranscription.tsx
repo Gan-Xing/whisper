@@ -15,7 +15,7 @@ import {
   Select,
   SelectChangeEvent,
 } from "@mui/material";
-import { models, languageOptions, defaultLanguages, largeV3Languages } from "@/constants"; // 请根据实际路径调整
+import { models, getTranslatedLanguageOptions } from "@/constants"; // 请根据实际路径调整
 
 interface Transcript {
   type: string;
@@ -28,6 +28,7 @@ interface RealTimeTranscriptionProps {
 }
 
 const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionary }) => {
+  const translatedLanguageOptions = getTranslatedLanguageOptions(dictionary);
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [status, setStatus] = useState("");
@@ -38,20 +39,23 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioBufferRef = useRef<Blob[]>([]);
 
+  const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions)
+  const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1)
+
   const handleModelChange = (event: SelectChangeEvent) => {
     const selectedModel = event.target.value;
     setModel(selectedModel);
     const langOptions =
       selectedModel.includes("distil") || selectedModel.endsWith(".en")
-        ? ["English"]
+        ? ["en"]
         : selectedModel === "Systran/faster-whisper-large-v3"
-        ? largeV3Languages
-        : defaultLanguages.filter((lang) => lang !== "Yue Chinese");
-    setLanguage(languageOptions[langOptions[0]]);
+        ? largeV3LanguagesKeys
+        : defaultLanguagesKeys;
+    setLanguage(langOptions[0]);
   };
 
   const handleLanguageChange = (event: SelectChangeEvent) => {
-    setLanguage(languageOptions[event.target.value]);
+    setLanguage(event.target.value);
     console.log("选中的语言", event.target.value);
   };
 
@@ -234,21 +238,17 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
               <InputLabel id="language-select-label">{dictionary.languageLabel}</InputLabel>
               <Select
                 labelId="language-select-label"
-                value={
-                  Object.keys(languageOptions).find(
-                    (key) => languageOptions[key] === language
-                  ) || ""
-                }
+                value={language}
                 onChange={handleLanguageChange}
               >
                 {(model.includes("distil") || model.endsWith(".en")
-                  ? ["English"]
+                  ? ["en"]
                   : model === "Systran/faster-whisper-large-v3"
-                  ? largeV3Languages
-                  : defaultLanguages.filter((lang) => lang !== "Yue Chinese")
+                  ? largeV3LanguagesKeys
+                  : defaultLanguagesKeys
                 ).map((lang) => (
                   <MenuItem key={lang} value={lang}>
-                    {lang}
+                    {translatedLanguageOptions[lang]}
                   </MenuItem>
                 ))}
               </Select>
