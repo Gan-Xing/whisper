@@ -1,0 +1,23 @@
+{
+  "title": "Speech Recognition",
+  "transcriptionText": "Transcription Text:",
+  "recordingStatus": "Recording Status:",
+  "isRecording": "Yes",
+  "isNotRecording": "No",
+  "startRecording": "Start Recording",
+  "stopRecording": "Stop Recording",
+  "uploadAudioFile": "Upload Audio File:",
+  "uploadFile": "Upload File",
+  "state": "State:",
+  "transcriptionSuccess": "Transcription Successful",
+  "error": "Error",
+  "pongReceived": "Received pong from server",
+  "webSocketConnected": "WebSocket Connected",
+  "webSocketClosed": "WebSocket Closed",
+  "audioSent": "Audio data sent to server",
+  "recordingStopped": "Recording Stopped",
+  "uploadingFile": "Uploading File",
+  "fileSent": "File data sent to server",
+  "modelLabel": "Model",
+  "languageLabel": "Language"
+}

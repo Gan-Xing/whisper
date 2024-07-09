@@ -1,0 +1,24 @@
+{
+    "title": "语音识别",
+    "transcriptionText": "识别文本:",
+    "recordingStatus": "录音状态:",
+    "isRecording": "是",
+    "isNotRecording": "否",
+    "startRecording": "开始录音",
+    "stopRecording": "停止录音",
+    "uploadAudioFile": "上传音频文件:",
+    "uploadFile": "上传文件",
+    "state": "状态:",
+    "transcriptionSuccess": "转录成功",
+    "error": "错误",
+    "pongReceived": "收到服务器的pong",
+    "webSocketConnected": "WebSocket 连接已建立",
+    "webSocketClosed": "WebSocket 连接已关闭",
+    "audioSent": "音频数据已发送到服务器",
+    "recordingStopped": "录音已停止",
+    "uploadingFile": "上传文件",
+    "fileSent": "文件数据已发送到服务器",
+    "modelLabel": "模型",
+    "languageLabel": "语言"
+  }
+  

@@ -1,3 +1,4 @@
+// app/components/RealTimeTranscription.tsx
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -22,7 +23,11 @@ interface Transcript {
   message?: string;
 }
 
-const RealTimeTranscription: React.FC = () => {
+interface RealTimeTranscriptionProps {
+  dictionary: any;
+}
+
+const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionary }) => {
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [status, setStatus] = useState("");
@@ -56,15 +61,15 @@ const RealTimeTranscription: React.FC = () => {
       const data: Transcript = JSON.parse(event.data);
       if (data.type === "transcription") {
         setMessages((prevMessages) => [...prevMessages, data.text]);
-        setStatus("转录成功");
+        setStatus(dictionary.transcriptionSuccess);
       } else if (data.type === "error") {
-        setStatus(`错误: ${data.message}`);
+        setStatus(`${dictionary.error}: ${data.message}`);
       } else if (data.type === "pong") {
-        setStatus("收到服务器的pong");
+        setStatus(dictionary.pongReceived);
       }
     };
     ws.onopen = () => {
-      setStatus("WebSocket 连接已建立");
+      setStatus(dictionary.webSocketConnected);
       socketRef.current = ws;
       const pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -73,20 +78,20 @@ const RealTimeTranscription: React.FC = () => {
       }, 5000); // 每5秒发送一次ping
       return () => clearInterval(pingInterval);
     };
-    ws.onclose = () => setStatus("WebSocket 连接已关闭");
+    ws.onclose = () => setStatus(dictionary.webSocketClosed);
     socketRef.current = ws;
     return () => ws.close();
-  }, []);
+  }, [dictionary]);
 
   const startRecording = async () => {
     setRecording(true);
-    setStatus("开始录音...");
+    setStatus(dictionary.startRecording);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;
     audioBufferRef.current = [];
     mediaRecorder.start();
-    setStatus("录音中");
+    setStatus(dictionary.recording);
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -112,25 +117,25 @@ const RealTimeTranscription: React.FC = () => {
               temperature: "0",
             })
           );
-          setStatus("音频数据已发送到服务器");
+          setStatus(dictionary.audioSent);
         }
       };
       stream.getTracks().forEach((track) => track.stop());
-      setStatus("录音已停止");
+      setStatus(dictionary.recordingStopped);
     };
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
-      setStatus("停止录音...");
+      setStatus(dictionary.stopRecording);
     }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && socketRef.current) {
-      setStatus(`上传文件: ${file.name}`);
+      setStatus(`${dictionary.uploadingFile}: ${file.name}`);
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onloadend = () => {
@@ -146,7 +151,7 @@ const RealTimeTranscription: React.FC = () => {
               temperature: "0",
             })
           );
-          setStatus("文件数据已发送到服务器");
+          setStatus(dictionary.fileSent);
         }
       };
     }
@@ -168,11 +173,11 @@ const RealTimeTranscription: React.FC = () => {
         align="center"
         gutterBottom
       >
-        语音识别
+        {dictionary.title}
       </Typography>
       <Box mt={4} mb={4}>
         <Typography variant="h5" component="h2" gutterBottom>
-          识别文本:
+          {dictionary.transcriptionText}
         </Typography>
         <Paper elevation={3} sx={{ padding: 2, backgroundColor: "#f1f1f1" }}>
           <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
@@ -184,7 +189,7 @@ const RealTimeTranscription: React.FC = () => {
         <Grid item xs={12} md={4}>
           <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
             <Typography variant="h6" gutterBottom>
-              录音状态: {recording ? "是" : "否"}
+              {dictionary.recordingStatus} {recording ? dictionary.isRecording : dictionary.isNotRecording}
             </Typography>
             <Button
               variant="contained"
@@ -193,7 +198,7 @@ const RealTimeTranscription: React.FC = () => {
               disabled={recording}
               sx={{ marginRight: 2 }}
             >
-              开始录音
+              {dictionary.startRecording}
             </Button>
             <Button
               variant="contained"
@@ -201,14 +206,14 @@ const RealTimeTranscription: React.FC = () => {
               onClick={stopRecording}
               disabled={!recording}
             >
-              停止录音
+              {dictionary.stopRecording}
             </Button>
           </Box>
         </Grid>
         <Grid item xs={12} md={4}>
           <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
             <FormControl fullWidth>
-              <InputLabel id="model-select-label">模型</InputLabel>
+              <InputLabel id="model-select-label">{dictionary.modelLabel}</InputLabel>
               <Select
                 labelId="model-select-label"
                 value={model}
@@ -226,7 +231,7 @@ const RealTimeTranscription: React.FC = () => {
         <Grid item xs={12} md={4}>
           <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
             <FormControl fullWidth>
-              <InputLabel id="language-select-label">语言</InputLabel>
+              <InputLabel id="language-select-label">{dictionary.languageLabel}</InputLabel>
               <Select
                 labelId="language-select-label"
                 value={
@@ -253,14 +258,14 @@ const RealTimeTranscription: React.FC = () => {
         <Grid item xs={12} md={4}>
           <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
             <Typography variant="h5" component="h2" gutterBottom>
-              上传音频文件:
+              {dictionary.uploadAudioFile}
             </Typography>
             <Button
               variant="contained"
               component="label"
               onClick={handleButtonClick}
             >
-              上传文件
+              {dictionary.uploadFile}
             </Button>
             <input
               type="file"
@@ -274,7 +279,7 @@ const RealTimeTranscription: React.FC = () => {
         <Grid item xs={12} md={4}>
           <Box mb={4}>
             <Typography variant="h5" component="h2" gutterBottom>
-              状态:
+              {dictionary.state}
             </Typography>
             <Typography variant="body1">{status}</Typography>
           </Box>
