@@ -14,7 +14,15 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
 } from "@mui/material";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { models, getTranslatedLanguageOptions } from "@/constants"; // 请根据实际路径调整
 
 interface Transcript {
@@ -27,20 +35,23 @@ interface RealTimeTranscriptionProps {
   dictionary: any;
 }
 
-const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionary }) => {
+const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
+  dictionary,
+}) => {
   const translatedLanguageOptions = getTranslatedLanguageOptions(dictionary);
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [status, setStatus] = useState("");
   const [model, setModel] = useState("Systran/faster-whisper-large-v3");
   const [language, setLanguage] = useState("zh");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioBufferRef = useRef<Blob[]>([]);
 
-  const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions)
-  const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1)
+  const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions);
+  const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1);
 
   const handleModelChange = (event: SelectChangeEvent) => {
     const selectedModel = event.target.value;
@@ -57,6 +68,14 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
   const handleLanguageChange = (event: SelectChangeEvent) => {
     setLanguage(event.target.value);
     console.log("选中的语言", event.target.value);
+  };
+
+  const handleSettingsOpen = () => {
+    setSettingsOpen(true);
+  };
+
+  const handleSettingsClose = () => {
+    setSettingsOpen(false);
   };
 
   useEffect(() => {
@@ -105,7 +124,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
 
     mediaRecorder.onstop = () => {
       setRecording(false);
-      const audioBlob = new Blob(audioBufferRef.current, { type: "audio/webm" });
+      const audioBlob = new Blob(audioBufferRef.current, {
+        type: "audio/webm",
+      });
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onloadend = () => {
@@ -170,15 +191,75 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
   return (
     <Container maxWidth="md">
       <CssBaseline />
-      <Typography
-        marginTop={2}
-        variant="h3"
-        component="h1"
-        align="center"
-        gutterBottom
-      >
-        {dictionary.title}
-      </Typography>
+      <AppBar position="static" sx={{ padding: 1 }}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            {dictionary.title}
+          </Typography>
+          <IconButton
+            edge="end"
+            color="inherit"
+            onClick={handleSettingsOpen}
+            sx={{
+              "&:hover": {
+                backgroundColor: '#5fa4f3',
+              },
+              "&:focus, &:focus-visible": {
+                outline: "none",
+              },
+            }}
+          >
+            <SettingsIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+      <Dialog open={settingsOpen} onClose={handleSettingsClose}>
+        <DialogTitle>{dictionary.settings}</DialogTitle>
+        <DialogContent sx={{pt:"16px !important"}}>
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="model-select-label">
+              {dictionary.modelLabel}
+            </InputLabel>
+            <Select
+              labelId="model-select-label"
+              value={model}
+              onChange={handleModelChange}
+            >
+              {models.map((model) => (
+                <MenuItem key={model} value={model}>
+                  {model}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth>
+            <InputLabel id="language-select-label">
+              {dictionary.languageLabel}
+            </InputLabel>
+            <Select
+              labelId="language-select-label"
+              value={language}
+              onChange={handleLanguageChange}
+            >
+              {(model.includes("distil") || model.endsWith(".en")
+                ? ["en"]
+                : model === "Systran/faster-whisper-large-v3"
+                ? largeV3LanguagesKeys
+                : defaultLanguagesKeys
+              ).map((lang) => (
+                <MenuItem key={lang} value={lang}>
+                  {translatedLanguageOptions[lang]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleSettingsClose} color="primary">
+            {dictionary.close}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Box mt={4} mb={4}>
         <Typography variant="h5" component="h2" gutterBottom>
           {dictionary.transcriptionText}
@@ -190,10 +271,11 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
         </Paper>
       </Box>
       <Grid container spacing={6} marginTop={2}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
             <Typography variant="h6" gutterBottom>
-              {dictionary.recordingStatus} {recording ? dictionary.isRecording : dictionary.isNotRecording}
+              {dictionary.recordingStatus}{" "}
+              {recording ? dictionary.isRecording : dictionary.isNotRecording}
             </Typography>
             <Button
               variant="contained"
@@ -214,48 +296,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
             </Button>
           </Box>
         </Grid>
-        <Grid item xs={12} md={4}>
-          <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
-            <FormControl fullWidth>
-              <InputLabel id="model-select-label">{dictionary.modelLabel}</InputLabel>
-              <Select
-                labelId="model-select-label"
-                value={model}
-                onChange={handleModelChange}
-              >
-                {models.map((model) => (
-                  <MenuItem key={model} value={model}>
-                    {model}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
-            <FormControl fullWidth>
-              <InputLabel id="language-select-label">{dictionary.languageLabel}</InputLabel>
-              <Select
-                labelId="language-select-label"
-                value={language}
-                onChange={handleLanguageChange}
-              >
-                {(model.includes("distil") || model.endsWith(".en")
-                  ? ["en"]
-                  : model === "Systran/faster-whisper-large-v3"
-                  ? largeV3LanguagesKeys
-                  : defaultLanguagesKeys
-                ).map((lang) => (
-                  <MenuItem key={lang} value={lang}>
-                    {translatedLanguageOptions[lang]}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={6}>
           <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
             <Typography variant="h5" component="h2" gutterBottom>
               {dictionary.uploadAudioFile}
@@ -276,7 +317,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({ dictionar
             />
           </Box>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12}>
           <Box mb={4}>
             <Typography variant="h5" component="h2" gutterBottom>
               {dictionary.state}
