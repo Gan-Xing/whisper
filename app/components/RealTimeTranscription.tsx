@@ -25,6 +25,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { models, getTranslatedLanguageOptions } from "@/constants"; // 请根据实际路径调整
+import DynamicHeightList from "./DynamicHeightList";
 
 interface Transcript {
   type: string;
@@ -188,6 +189,11 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     }
   };
 
+  const handlePlayMessage = (message: string) => {
+    // 这里可以实现你的TTS播放逻辑
+    console.log("播放消息:", message);
+  };
+
   return (
     <Container
       maxWidth="md"
@@ -280,22 +286,20 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
             {status}
           </Typography>
         </Box>
-        <Paper
-  elevation={3}
-  sx={{
-    padding: 2,
-    backgroundColor: "#f1f1f1",
-    flex: 1,
-    overflow: "auto",
-  }}
->
-  <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-    {messages.map((message, index) => (
-      <span key={index}>{message}<br/></span>
-    ))}
-  </Typography>
-</Paper>
-
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            width: "100%",
+            overflow: "auto",
+          }}
+        >
+          <DynamicHeightList
+            items={messages}
+            handlePlayMessage={handlePlayMessage}
+          />
+        </Box>
       </Grid>
       <Grid container sx={{ display: "flex", pb: 1 }}>
         <Grid item sx={{ flex: 1 }}>
