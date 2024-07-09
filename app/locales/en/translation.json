@@ -106,6 +106,7 @@
   "isNotRecording": "No",
   "startRecording": "Start Recording",
   "stopRecording": "Stop Recording",
+  "recording":"Recording in progress",
   "uploadAudioFile": "Upload Audio File:",
   "uploadFile": "Upload File",
   "state": "State:",
@@ -119,5 +120,6 @@
   "uploadingFile": "Uploading File",
   "fileSent": "File data sent to server",
   "modelLabel": "Model",
-  "languageLabel": "Language"
+  "languageLabel": "Language",
+  "settings":"Settings"
 }

@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { models, getTranslatedLanguageOptions } from "@/constants"; // 请根据实际路径调整
 
@@ -41,7 +42,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const translatedLanguageOptions = getTranslatedLanguageOptions(dictionary);
   const [recording, setRecording] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(dictionary.webSocketClosed);
   const [model, setModel] = useState("Systran/faster-whisper-large-v3");
   const [language, setLanguage] = useState("zh");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -108,7 +109,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   const startRecording = async () => {
     setRecording(true);
-    setStatus(dictionary.startRecording);
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;
@@ -189,9 +189,12 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   };
 
   return (
-    <Container maxWidth="md">
+    <Container
+      maxWidth="md"
+      sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
+    >
       <CssBaseline />
-      <AppBar position="static" sx={{ padding: 1 }}>
+      <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {dictionary.title}
@@ -202,7 +205,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
             onClick={handleSettingsOpen}
             sx={{
               "&:hover": {
-                backgroundColor: '#5fa4f3',
+                backgroundColor: "#5fa4f3",
               },
               "&:focus, &:focus-visible": {
                 outline: "none",
@@ -215,7 +218,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       </AppBar>
       <Dialog open={settingsOpen} onClose={handleSettingsClose}>
         <DialogTitle>{dictionary.settings}</DialogTitle>
-        <DialogContent sx={{pt:"16px !important"}}>
+        <DialogContent sx={{ pt: "16px !important" }}>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel id="model-select-label">
               {dictionary.modelLabel}
@@ -260,70 +263,81 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-      <Box mt={4} mb={4}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          {dictionary.transcriptionText}
-        </Typography>
-        <Paper elevation={3} sx={{ padding: 2, backgroundColor: "#f1f1f1" }}>
-          <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-            {messages.join("\n")}
+      <Grid
+        item
+        xs={12}
+        sx={{ display: "flex", flexDirection: "column", flex: 1, mb: 2 }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="h6">{dictionary.transcriptionText}</Typography>
+          <Typography variant="body1" sx={{ p: 1 }}>
+            {status}
           </Typography>
-        </Paper>
-      </Box>
-      <Grid container spacing={6} marginTop={2}>
-        <Grid item xs={12} md={6}>
-          <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
-            <Typography variant="h6" gutterBottom>
-              {dictionary.recordingStatus}{" "}
-              {recording ? dictionary.isRecording : dictionary.isNotRecording}
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={startRecording}
-              disabled={recording}
-              sx={{ marginRight: 2 }}
-            >
-              {dictionary.startRecording}
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={stopRecording}
-              disabled={!recording}
-            >
-              {dictionary.stopRecording}
-            </Button>
-          </Box>
+        </Box>
+        <Paper
+  elevation={3}
+  sx={{
+    padding: 2,
+    backgroundColor: "#f1f1f1",
+    flex: 1,
+    overflow: "auto",
+  }}
+>
+  <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+    {messages.map((message, index) => (
+      <span key={index}>{message}<br/></span>
+    ))}
+  </Typography>
+</Paper>
+
+      </Grid>
+      <Grid container sx={{ display: "flex", pb: 1 }}>
+        <Grid item sx={{ flex: 1 }}>
+          <Button
+            variant="contained"
+            color={recording ? "secondary" : "primary"}
+            onClick={recording ? stopRecording : startRecording}
+            sx={{
+              width: "100%",
+              "&:focus": {
+                outline: "none",
+              },
+              "&:focus-visible": {
+                outline: "none",
+              },
+            }}
+          >
+            {recording ? dictionary.stopRecording : dictionary.startRecording}
+          </Button>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              {dictionary.uploadAudioFile}
-            </Typography>
-            <Button
-              variant="contained"
-              component="label"
-              onClick={handleButtonClick}
-            >
-              {dictionary.uploadFile}
-            </Button>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={handleFileUpload}
-              ref={fileInputRef}
-              style={{ display: "none" }}
-            />
-          </Box>
-        </Grid>
-        <Grid item xs={12}>
-          <Box mb={4}>
-            <Typography variant="h5" component="h2" gutterBottom>
-              {dictionary.state}
-            </Typography>
-            <Typography variant="body1">{status}</Typography>
-          </Box>
+        <Grid item sx={{ textAlign: { xs: "left", md: "center" } }}>
+          <IconButton
+            color="primary"
+            component="label"
+            onClick={handleButtonClick}
+            sx={{
+              width: "100%",
+              backgroundColor: "rgba(25, 118, 210, 0.2)",
+              "&:hover": {
+                backgroundColor: "rgba(25, 118, 210, 0.6)",
+              },
+            }}
+          >
+            <AddIcon />
+          </IconButton>
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={handleFileUpload}
+            ref={fileInputRef}
+            style={{ display: "none" }}
+          />
         </Grid>
       </Grid>
     </Container>
