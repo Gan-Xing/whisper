@@ -174,6 +174,13 @@ async function convertToWavAndSplit(
         } catch (error) {
           console.error(`删除临时文件时出错: ${chunkFilePath}`, error);
         }
+        // 删除原始的 webm 文件
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`已删除原始 webm 文件: ${filePath}`);
+        } catch (error) {
+          console.error(`删除原始 webm 文件时出错: ${filePath}`, error);
+        }
       }
     });
   } catch (error) {
