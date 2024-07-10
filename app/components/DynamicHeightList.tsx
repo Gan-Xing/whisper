@@ -1,21 +1,56 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { FixedSizeList as List } from "react-window";
-import { Box, Checkbox, Typography, IconButton } from "@mui/material";
+import {
+  Box,
+  IconButton,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+} from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
 
 interface DynamicHeightListProps {
   items: string[];
   handlePlayMessage: (message: string) => void;
+  handleEditMessage: (index: number, newText: string) => void;
+  dictionary: any;
 }
 
 const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
   items,
   handlePlayMessage,
+  handleEditMessage,
+  dictionary,
 }) => {
   const listContainerRef = useRef<HTMLDivElement>(null);
   const { height } = useResizeObserver(listContainerRef);
-  console.log("height",height)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [currentText, setCurrentText] = useState<string>("");
+
+  const handleEditClick = (index: number, text: string) => {
+    setEditingIndex(index);
+    setCurrentText(text);
+  };
+
+  const handleSaveClick = () => {
+    if (editingIndex !== null) {
+      handleEditMessage(editingIndex, currentText);
+      setEditingIndex(null);
+    }
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentText(event.target.value);
+  };
+
+  const handleClose = () => {
+    setEditingIndex(null);
+  };
 
   return (
     <div
@@ -49,6 +84,7 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                 }}
+                onClick={() => handleEditClick(index, items[index])}
               >
                 {items[index]}
               </Typography>
@@ -56,7 +92,7 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
                 onClick={() => handlePlayMessage(items[index])}
                 color="primary"
                 size="small"
-                sx={{mr:1.5}}
+                sx={{ mr: 1.5 }}
               >
                 <PlayArrowIcon />
               </IconButton>
@@ -64,6 +100,38 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
           )}
         </List>
       )}
+
+      <Dialog
+        open={editingIndex !== null}
+        onClose={handleClose}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            width: "100%",
+            maxWidth: "50rem",
+            m: 1,
+          },
+        }}
+      >
+        <DialogTitle>{dictionary.edit}</DialogTitle>
+        <DialogContent>
+          <TextField
+            value={currentText}
+            onChange={handleChange}
+            fullWidth
+            multiline
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} color="primary">
+            {dictionary.cancel}
+          </Button>
+          <Button onClick={handleSaveClick} color="primary">
+            {dictionary.save}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

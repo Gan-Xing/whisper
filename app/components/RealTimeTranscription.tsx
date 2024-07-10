@@ -5,7 +5,6 @@ import {
   Button,
   Typography,
   Container,
-  Paper,
   Box,
   Grid,
   CssBaseline,
@@ -194,6 +193,12 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     console.log("播放消息:", message);
   };
 
+  const handleEditMessage = (index: number, newText: string) => {
+    setMessages((prevMessages) =>
+      prevMessages.map((msg, i) => (i === index ? newText : msg))
+    );
+  };
+
   return (
     <Container
       maxWidth="md"
@@ -297,7 +302,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
         >
           <DynamicHeightList
             items={messages}
+            dictionary={dictionary}
             handlePlayMessage={handlePlayMessage}
+            handleEditMessage={handleEditMessage}
           />
         </Box>
       </Grid>

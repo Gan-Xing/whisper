@@ -121,5 +121,8 @@
   "fileSent": "文件数据已发送到服务器",
   "modelLabel": "模型",
   "languageLabel": "语言",
-   "settings":"设置"
+   "settings":"设置",
+   "edit":"编辑",
+   "cancel":"取消",
+   "save":"保存"
 }
