@@ -30,6 +30,7 @@ interface Transcript {
   type: string;
   text: string;
   message?: string;
+  id: string;
 }
 
 interface RealTimeTranscriptionProps {
@@ -41,17 +42,20 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 }) => {
   const translatedLanguageOptions = getTranslatedLanguageOptions(dictionary);
   const [recording, setRecording] = useState(false);
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Transcript[]>([]);
   const [status, setStatus] = useState(dictionary.webSocketClosed);
   const [model, setModel] = useState("Systran/faster-whisper-large-v3");
-  const [language, setLanguage] = useState("zh");
+  const [inputLanguage, setInputLanguage] = useState("zh");
+  const [outputLanguage, setOutputLanguage] = useState("fr");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions);
+  const [langOptions, setLangOptions] =
+    useState<string[]>(largeV3LanguagesKeys);
+  const [operation, setOperation] = useState("transcription");
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioBufferRef = useRef<Blob[]>([]);
-
-  const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions);
   const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1);
 
   const handleModelChange = (event: SelectChangeEvent) => {
@@ -63,12 +67,23 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
         : selectedModel === "Systran/faster-whisper-large-v3"
         ? largeV3LanguagesKeys
         : defaultLanguagesKeys;
-    setLanguage(langOptions[0]);
+    setLangOptions(langOptions);
+    setInputLanguage(langOptions[0]);
   };
 
-  const handleLanguageChange = (event: SelectChangeEvent) => {
-    setLanguage(event.target.value);
-    console.log("选中的语言", event.target.value);
+  const handleInputLanguageChange = (event: SelectChangeEvent) => {
+    setInputLanguage(event.target.value);
+    console.log("选中的输入语言", event.target.value);
+  };
+
+  const handleOutputLanguageChange = (event: SelectChangeEvent) => {
+    setOutputLanguage(event.target.value);
+    console.log("选中的输出语言", event.target.value);
+  };
+
+  const handleOperationChange = (event: SelectChangeEvent) => {
+    setOperation(event.target.value);
+    console.log("选中的操作", event.target.value);
   };
 
   const handleSettingsOpen = () => {
@@ -83,9 +98,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     const ws = new WebSocket("ws://localhost:3001");
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
-      if (data.type === "transcription") {
-        setMessages((prevMessages) => [...prevMessages, data.text]);
-        setStatus(dictionary.transcriptionSuccess);
+      if (data.type === "transcription" || data.type === "translation") {
+        setMessages((prevMessages) => [...prevMessages, data]);
+        setStatus(data.type === "transcription" ? dictionary.transcriptionSuccess : dictionary.translationSuccess);
       } else if (data.type === "error") {
         setStatus(`${dictionary.error}: ${data.message}`);
       } else if (data.type === "pong") {
@@ -137,7 +152,10 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               type: "audio",
               audio: base64data.split(",")[1],
               model: model,
-              language: language,
+              language: inputLanguage,
+              operation: operation,
+              outputLanguage:
+                operation === "translation" ? outputLanguage : undefined, // 新增输出语言
               response_format: "json",
               temperature: "0",
             })
@@ -171,7 +189,10 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               type: "upload",
               audio: base64data.split(",")[1],
               model: model,
-              language: language,
+              language: inputLanguage,
+              operation: operation, // 新增操作
+              outputLanguage:
+                operation === "translation" ? outputLanguage : undefined, // 新增输出语言
               response_format: "json",
               temperature: "0",
             })
@@ -195,7 +216,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   const handleEditMessage = (index: number, newText: string) => {
     setMessages((prevMessages) =>
-      prevMessages.map((msg, i) => (i === index ? newText : msg))
+      prevMessages.map((msg, i) => (i === index ? { ...msg, text: newText } : msg))
     );
   };
 
@@ -231,6 +252,21 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
         <DialogTitle>{dictionary.settings}</DialogTitle>
         <DialogContent sx={{ pt: "16px !important" }}>
           <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="operation-select-label">
+              {dictionary.operationType}
+            </InputLabel>
+            <Select
+              labelId="operation-select-label"
+              value={operation}
+              onChange={handleOperationChange}
+            >
+              <MenuItem value="transcription">
+                {dictionary.transcription}
+              </MenuItem>
+              <MenuItem value="translation">{dictionary.translation}</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel id="model-select-label">
               {dictionary.modelLabel}
             </InputLabel>
@@ -246,27 +282,42 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               ))}
             </Select>
           </FormControl>
-          <FormControl fullWidth>
-            <InputLabel id="language-select-label">
-              {dictionary.languageLabel}
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="input-language-select-label">
+              {dictionary.inputLanguage}
             </InputLabel>
             <Select
-              labelId="language-select-label"
-              value={language}
-              onChange={handleLanguageChange}
+              labelId="input-language-select-label"
+              value={inputLanguage}
+              onChange={handleInputLanguageChange}
             >
-              {(model.includes("distil") || model.endsWith(".en")
-                ? ["en"]
-                : model === "Systran/faster-whisper-large-v3"
-                ? largeV3LanguagesKeys
-                : defaultLanguagesKeys
-              ).map((lang) => (
-                <MenuItem key={lang} value={lang}>
-                  {translatedLanguageOptions[lang]}
-                </MenuItem>
-              ))}
+              {langOptions &&
+                langOptions.map((lang) => (
+                  <MenuItem key={lang} value={lang}>
+                    {translatedLanguageOptions[lang]}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
+          {operation === "translation" && (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="output-language-select-label">
+                {dictionary.outputLanguage}
+              </InputLabel>
+              <Select
+                labelId="output-language-select-label"
+                value={outputLanguage}
+                onChange={handleOutputLanguageChange}
+              >
+                {largeV3LanguagesKeys &&
+                  largeV3LanguagesKeys.map((lang) => (
+                    <MenuItem key={lang} value={lang}>
+                      {translatedLanguageOptions[lang]}
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleSettingsClose} color="primary">

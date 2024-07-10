@@ -14,8 +14,15 @@ import {
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
 
+interface Transcript {
+  type: string;
+  text: string;
+  message?: string;
+  id: string;
+}
+
 interface DynamicHeightListProps {
-  items: string[];
+  items: Transcript[];
   handlePlayMessage: (message: string) => void;
   handleEditMessage: (index: number, newText: string) => void;
   dictionary: any;
@@ -76,20 +83,20 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
               }}
             >
               <Typography
+                key={`${items[index].id}-${index}`}
                 noWrap
                 sx={{
                   flexGrow: 1,
                   color: index % 2 ? "secondary.main" : "primary.main",
-                  whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                 }}
-                onClick={() => handleEditClick(index, items[index])}
+                onClick={() => handleEditClick(index, items[index].text)}
               >
-                {items[index]}
+                {items[index].text}
               </Typography>
               <IconButton
-                onClick={() => handlePlayMessage(items[index])}
+                onClick={() => handlePlayMessage(items[index].text)}
                 color="primary"
                 size="small"
                 sx={{ mr: 1.5 }}
