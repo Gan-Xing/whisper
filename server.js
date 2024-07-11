@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { exec, spawn } from "child_process";
 import express from "express";
 import multer from "multer";
 import fs from "fs";
@@ -9,7 +9,6 @@ import FormData from "form-data";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import ffmpeg from "fluent-ffmpeg";
-import ffmpegPath from "ffmpeg-static";
 import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
 
@@ -18,22 +17,23 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const ffmpegPath = process.env.FFMPEG_PATH || "/usr/bin/ffmpeg"; // 使用环境变量或默认路径
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 const app = express();
-const port = 3001;
-const upload = multer({ dest: "uploads/" });
+const port = process.env.NEXT_PUBLIC_WS_PORT || 3001; // 从环境变量中读取端口
+const upload = multer({ dest: path.join(__dirname, "uploads/") }); // 修改路径
 
 app.use(express.static(path.join(__dirname, "public")));
 
 const server = app.listen(port, () => {
-  console.log(`服务器正在运行在 http://localhost:${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
 });
 
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (ws) => {
-  console.log("客户端已连接");
+  console.log("Client connected");
   let audioBuffer = [];
 
   // 心跳机制
@@ -56,10 +56,10 @@ wss.on("connection", (ws) => {
       const buffer = Buffer.from(data.audio, "base64");
       audioBuffer.push(buffer);
 
-      const filePath = `uploads/audio_${Date.now()}.webm`;
+      const filePath = path.join(__dirname, `uploads/audio_${Date.now()}.webm`); // 修改路径
 
       fs.writeFileSync(filePath, buffer);
-      console.log(`音频文件已保存到 ${filePath}`);
+      console.log(`Audio file saved to ${filePath}`);
 
       await convertToWavAndSplit(
         filePath,
@@ -73,10 +73,14 @@ wss.on("connection", (ws) => {
       );
     } else if (data.type === "upload") {
       const buffer = Buffer.from(data.audio, "base64");
-      const filePath = `uploads/uploaded_audio_${Date.now()}.webm`;
+      const extension = data.fileType || 'webm'; // 动态确定文件扩展名
+      const filePath = path.join(
+        __dirname,
+        `uploads/uploaded_audio_${Date.now()}.${extension}`
+      ); // 动态确定文件扩展名
 
       fs.writeFileSync(filePath, buffer);
-      console.log(`上传的音频文件已保存到 ${filePath}`);
+      console.log(`Uploaded audio file saved to ${filePath}`);
 
       await convertToWavAndSplit(
         filePath,
@@ -90,7 +94,7 @@ wss.on("connection", (ws) => {
       );
     } else if (data.type === "stop") {
       audioBuffer = [];
-      console.log("录音已停止，缓冲区已清空");
+      console.log("Recording stopped, buffer cleared");
     } else if (data.type === "pong") {
       console.log("Received pong from client");
     }
@@ -98,7 +102,7 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     clearInterval(interval); // 关闭连接时清除心跳定时器
-    console.log("客户端已断开连接");
+    console.log("Client disconnected");
   });
 });
 
@@ -115,15 +119,23 @@ async function convertToWavAndSplit(
   const wavFilePath = filePath.replace(path.extname(filePath), ".wav");
   const outputDir = path.join(__dirname, "uploads", "chunks");
 
+  console.log("wavFilePath", wavFilePath);
+  console.log("outputDir", outputDir);
+
   try {
     await new Promise((resolve, reject) => {
       ffmpeg(filePath)
         .toFormat("wav")
-        .on("end", resolve)
-        .on("error", reject)
+        .on("end", () => {
+          console.log(`Audio file successfully converted to WAV: ${wavFilePath}`);
+          resolve();
+        })
+        .on("error", (error) => {
+          console.error(`Error converting audio to WAV: ${error.message}`);
+          reject(error);
+        })
         .save(wavFilePath);
     });
-    console.log(`音频文件已转换为 WAV: ${wavFilePath}`);
 
     const pythonProcess = spawn("python", [
       "split_audio_vad.py",
@@ -144,16 +156,19 @@ async function convertToWavAndSplit(
     });
 
     pythonProcess.stderr.on("data", (data) => {
-      console.error(`stderr: ${data}`);
+      console.error(`Python process stderr: ${data}`);
     });
 
     pythonProcess.on("close", async (code) => {
-      console.log(`子进程退出码: ${code}`);
+      console.log(`Python process exited with code: ${code}`);
       try {
         fs.unlinkSync(wavFilePath);
-        console.log(`已删除原始 WAV 文件: ${wavFilePath}`);
+        console.log(`Deleted original WAV file: ${wavFilePath}`);
       } catch (error) {
-        console.error(`删除临时文件时出错: ${wavFilePath}`, error);
+        console.error(
+          `Error deleting temporary WAV file: ${wavFilePath}`,
+          error
+        );
       }
 
       while (chunkQueue.length > 0) {
@@ -170,35 +185,42 @@ async function convertToWavAndSplit(
         );
         try {
           fs.unlinkSync(chunkFilePath);
-          console.log(`已删除临时文件: ${chunkFilePath}`);
+          console.log(`Deleted temporary file: ${chunkFilePath}`);
         } catch (error) {
-          console.error(`删除临时文件时出错: ${chunkFilePath}`, error);
+          console.error(
+            `Error deleting temporary file: ${chunkFilePath}`,
+            error
+          );
         }
-        // 删除原始的 webm 文件
-        try {
-          fs.unlinkSync(filePath);
-          console.log(`已删除原始 webm 文件: ${filePath}`);
-        } catch (error) {
-          console.error(`删除原始 webm 文件时出错: ${filePath}`, error);
-        }
+      }
+
+      try {
+        fs.unlinkSync(filePath);
+        console.log(`Deleted original file: ${filePath}`);
+      } catch (error) {
+        console.error(`Error deleting original file: ${filePath}`, error);
       }
     });
   } catch (error) {
-    console.error("转换和分割过程中出错:", error);
-    ws.send(JSON.stringify({ type: "error", message: "音频转换或分割出错" }));
+    console.error("Error during conversion and splitting:", error);
+    ws.send(
+      JSON.stringify({
+        type: "error",
+        message: "Error converting or splitting audio",
+      })
+    );
 
-    // 确保在出错时删除临时文件
     try {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
-        console.log(`已删除临时文件: ${filePath}`);
+        console.log(`Deleted temporary file: ${filePath}`);
       }
       if (fs.existsSync(wavFilePath)) {
         fs.unlinkSync(wavFilePath);
-        console.log(`已删除临时 WAV 文件: ${wavFilePath}`);
+        // Ensure temporary files are deleted in case of errorconsole.log(`Deleted temporary WAV file: ${wavFilePath}`);
       }
     } catch (cleanupError) {
-      console.error("删除临时文件时出错:", cleanupError);
+      console.error("Error deleting temporary files:", cleanupError);
     }
   }
 }
@@ -231,7 +253,7 @@ async function transcribeOrTranslateChunk(
     );
 
     const transcriptionResponseText = await transcriptionResponse.text();
-    console.log("原始响应文本:", transcriptionResponseText);
+    console.log("Transcription API response:", transcriptionResponseText);
     const transcription = JSON.parse(transcriptionResponseText);
 
     ws.send(
@@ -243,7 +265,6 @@ async function transcribeOrTranslateChunk(
     );
 
     if (operation === "translation") {
-      // 发起翻译请求
       const translationResponse = await fetch(
         `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
         {
@@ -270,7 +291,7 @@ async function transcribeOrTranslateChunk(
       );
 
       const translationResponseText = await translationResponse.text();
-      console.log("翻译响应文本:", translationResponseText);
+      console.log("Translation API response:", translationResponseText);
       const translation = JSON.parse(translationResponseText);
 
       ws.send(
@@ -282,7 +303,9 @@ async function transcribeOrTranslateChunk(
       );
     }
   } catch (error) {
-    console.error("转录或翻译过程中出错:", error);
-    ws.send(JSON.stringify({ type: "error", message: "音频处理出错" }));
+    console.error("Error during transcription or translation:", error);
+    ws.send(
+      JSON.stringify({ type: "error", message: "Error processing audio" })
+    );
   }
 }

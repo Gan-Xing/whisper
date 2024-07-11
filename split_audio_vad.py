@@ -4,7 +4,6 @@ import contextlib
 import sys
 import wave
 import os
-from pydub import AudioSegment
 
 def read_wave(path):
     with contextlib.closing(wave.open(path, 'rb')) as wf:

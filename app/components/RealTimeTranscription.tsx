@@ -95,7 +95,8 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   };
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:3001");
+    const wsPort = process.env.NEXT_PUBLIC_WS_PORT;
+    const ws = new WebSocket(`ws://localhost:${wsPort}`);
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
       if (data.type === "transcription" || data.type === "translation") {
@@ -188,6 +189,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
             JSON.stringify({
               type: "upload",
               audio: base64data.split(",")[1],
+              fileType: file.type.split("/")[1],
               model: model,
               language: inputLanguage,
               operation: operation, // 新增操作

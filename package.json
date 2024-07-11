@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "concurrently \"node server.js\" \"next start\"",
     "lint": "next lint"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "@formatjs/intl-localematcher": "^0.5.4",
     "@mui/icons-material": "^5.16.0",
     "@mui/material": "^5.15.20",
+    "concurrently": "^8.2.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "ffmpeg-static": "^5.2.0",
@@ -36,7 +37,6 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/react-window": "^1.8.8",
-    "concurrently": "^8.2.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.4",
     "typescript": "^5"
