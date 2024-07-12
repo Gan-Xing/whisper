@@ -102,7 +102,11 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       const data: Transcript = JSON.parse(event.data);
       if (data.type === "transcription" || data.type === "translation") {
         setMessages((prevMessages) => [...prevMessages, data]);
-        setStatus(data.type === "transcription" ? dictionary.transcriptionSuccess : dictionary.translationSuccess);
+        setStatus(
+          data.type === "transcription"
+            ? dictionary.transcriptionSuccess
+            : dictionary.translationSuccess
+        );
       } else if (data.type === "error") {
         setStatus(`${dictionary.error}: ${data.message}`);
       } else if (data.type === "pong") {
@@ -126,7 +130,12 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   const startRecording = async () => {
     setRecording(true);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 16000, // 设置采样率
+        channelCount: 1, // 设置通道数
+      },
+    });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;
     audioBufferRef.current = [];
@@ -219,7 +228,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   const handleEditMessage = (index: number, newText: string) => {
     setMessages((prevMessages) =>
-      prevMessages.map((msg, i) => (i === index ? { ...msg, text: newText } : msg))
+      prevMessages.map((msg, i) =>
+        i === index ? { ...msg, text: newText } : msg
+      )
     );
   };
 
