@@ -131,10 +131,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const startRecording = async () => {
     setRecording(true);
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        sampleRate: 16000, // 设置采样率
-        channelCount: 1, // 设置通道数
-      },
+      audio: true,
     });
     const mediaRecorder = new MediaRecorder(stream);
     mediaRecorderRef.current = mediaRecorder;

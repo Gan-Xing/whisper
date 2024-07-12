@@ -126,9 +126,6 @@ async function convertToWavAndSplit(
     await new Promise((resolve, reject) => {
       ffmpeg(filePath)
         .toFormat("wav")
-        .audioCodec('pcm_s16le') // 设置音频编解码器
-        .audioChannels(1) // 设置音频通道数
-        .audioFrequency(16000) // 设置音频采样率
         .on("end", () => {
           console.log(`Audio file successfully converted to WAV: ${wavFilePath}`);
           resolve();
