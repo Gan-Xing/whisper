@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
 # 更新包列表并安装必要的工具
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --fix-missing \
     tzdata \
     curl \
     python3 \
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 
 # 安装最新的 Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs
+    apt-get install -y --fix-missing nodejs
 
 # 安装pnpm
 RUN npm install -g pnpm

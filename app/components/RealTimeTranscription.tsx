@@ -95,8 +95,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   };
 
   useEffect(() => {
-    const wsPort = process.env.NEXT_PUBLIC_WS_PORT;
-    const ws = new WebSocket(`ws://localhost:${wsPort}`);
+    const wsPort = process.env.NEXT_PUBLIC_WS_PORT || 3001;
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || `ws://localhost:${wsPort}`;
+    const ws = new WebSocket(wsUrl);
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
       if (data.type === "transcription" || data.type === "translation") {
