@@ -20,8 +20,9 @@ RUN apt-get update && apt-get install -y --fix-missing \
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y --fix-missing nodejs
 
-# 安装pnpm
-RUN npm install -g pnpm
+# 安装 pnpm 和 nrm，并使用淘宝源
+RUN npm install -g pnpm nrm && \
+    nrm use taobao
 
 # 设置工作目录
 WORKDIR /app
