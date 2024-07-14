@@ -21,6 +21,9 @@ RUN add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 && \
     apt-get update && \
     apt-get install -y --fix-missing ffmpeg
 
+# 删除所有 libnode 相关的包
+RUN apt-get remove -y libnode* nodejs* npm
+
 # 安装最新的 Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y --fix-missing nodejs
