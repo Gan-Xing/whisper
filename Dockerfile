@@ -1,5 +1,5 @@
 # 使用ubuntu镜像作为基础镜像
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # 设置环境变量以避免交互式安装
 ENV DEBIAN_FRONTEND=noninteractive
@@ -13,8 +13,13 @@ RUN apt-get update && apt-get install -y --fix-missing \
     python3-venv \
     python3-pip \
     build-essential \
-    npm \
-    ffmpeg
+    software-properties-common \
+    npm
+
+# 添加最新的FFmpeg PPA并安装FFmpeg
+RUN add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 && \
+    apt-get update && \
+    apt-get install -y --fix-missing ffmpeg
 
 # 安装最新的 Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
