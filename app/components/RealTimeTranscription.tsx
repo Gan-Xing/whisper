@@ -79,7 +79,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   const handleInputLanguageChange = (event: SelectChangeEvent) => {
     setInputLanguage(event.target.value);
-    console.log("选中的输入语言", event.target.value);
   };
 
   const handleOutputLanguageChange = (event: SelectChangeEvent) => {
@@ -93,7 +92,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const handleOperationChange = (event: SelectChangeEvent) => {
     const selectedOperation = event.target.value;
     setOperation(selectedOperation);
-    console.log("选中的操作", selectedOperation);
 
     if (selectedOperation === "translation") {
       setOutputLanguage("fr");
@@ -117,7 +115,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
       // 添加事件监听
       utterance.onend = function (event) {
-        console.log("SpeechSynthesisUtterance.onend");
       };
 
       utterance.onerror = function (event) {
@@ -218,7 +215,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
         setVoices(availableVoices);
         clearInterval(interval); // 拿到值后清除定时器
       }
-      console.log(availableVoices);
     }, 1000); // 每秒执行一次
 
     // 组件卸载时清除定时器
@@ -321,9 +317,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       fileInputRef.current.click();
     }
   };
-  console.log("selectedVoice", selectedVoice);
-
-
 
   const handleEditMessage = (index: number, newText: string) => {
     setMessages((prevMessages) =>
