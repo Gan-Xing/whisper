@@ -31,6 +31,7 @@ interface Transcript {
   text: string;
   message?: string;
   id: string;
+  audio: string;
 }
 
 interface RealTimeTranscriptionProps {
@@ -48,6 +49,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const [inputLanguage, setInputLanguage] = useState("zh");
   const [outputLanguage, setOutputLanguage] = useState("fr");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] =
+    useState<SpeechSynthesisVoice | null>(null);
   const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions);
   const [langOptions, setLangOptions] =
     useState<string[]>(largeV3LanguagesKeys);
@@ -58,6 +62,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const audioBufferRef = useRef<Blob[]>([]);
   const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [shouldPlay, setShouldPlay] = useState<string | null>(null);
 
   const handleModelChange = (event: SelectChangeEvent) => {
     const selectedModel = event.target.value;
@@ -79,12 +84,53 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   const handleOutputLanguageChange = (event: SelectChangeEvent) => {
     setOutputLanguage(event.target.value);
-    console.log("选中的输出语言", event.target.value);
+    const selectedVoice = voices.find((voice) =>
+      voice.lang.startsWith(event.target.value)
+    );
+    setSelectedVoice(selectedVoice || null);
   };
 
   const handleOperationChange = (event: SelectChangeEvent) => {
-    setOperation(event.target.value);
-    console.log("选中的操作", event.target.value);
+    const selectedOperation = event.target.value;
+    setOperation(selectedOperation);
+    console.log("选中的操作", selectedOperation);
+
+    if (selectedOperation === "translation") {
+      setOutputLanguage("fr");
+      const defaultVoice = voices.find((voice) => voice.voiceURI === "Amélie");
+      setSelectedVoice(defaultVoice || null);
+    }
+  };
+
+  const handlePlayMessage = (
+    audioBase64: string,
+    type: string,
+    text: string
+  ) => {
+    if ((type === "translation" && selectedVoice) || audioBase64 === "#@$") {
+      // 清空语音队列
+      speechSynthesis.cancel();
+
+      // 创建并配置 SpeechSynthesisUtterance 对象
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = selectedVoice;
+
+      // 添加事件监听
+      utterance.onend = function (event) {
+        console.log("SpeechSynthesisUtterance.onend");
+      };
+
+      utterance.onerror = function (event) {
+        console.error("SpeechSynthesisUtterance.onerror:", event.error);
+      };
+
+      // 调用 speak 方法
+      speechSynthesis.speak(utterance);
+    } else {
+      // 播放音频
+      const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
+      audio.play();
+    }
   };
 
   const handleSettingsOpen = () => {
@@ -108,6 +154,10 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
             ? dictionary.transcriptionSuccess
             : dictionary.translationSuccess
         );
+        // 如果是翻译类型，自动播放音频
+        if (data.type === "translation") {
+          setShouldPlay(data.text);
+        }
       } else if (data.type === "error") {
         setStatus(`${dictionary.error}: ${data.message}`);
       } else if (data.type === "pong") {
@@ -160,6 +210,27 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       window.removeEventListener("resize", setContainerHeight);
     };
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const availableVoices = speechSynthesis.getVoices();
+      if (availableVoices.length > 0) {
+        setVoices(availableVoices);
+        clearInterval(interval); // 拿到值后清除定时器
+      }
+      console.log(availableVoices);
+    }, 1000); // 每秒执行一次
+
+    // 组件卸载时清除定时器
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (shouldPlay) {
+      handlePlayMessage("", "translation", shouldPlay);
+      setShouldPlay(null);
+    }
+  }, [shouldPlay]);
 
   const startRecording = async () => {
     setRecording(true);
@@ -250,11 +321,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       fileInputRef.current.click();
     }
   };
+  console.log("selectedVoice", selectedVoice);
 
-  const handlePlayMessage = (message: string) => {
-    // 这里可以实现你的TTS播放逻辑
-    console.log("播放消息:", message);
-  };
+
 
   const handleEditMessage = (index: number, newText: string) => {
     setMessages((prevMessages) =>
@@ -270,7 +339,6 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       sx={{
         display: "flex",
         flexDirection: "column",
-        // height: 'calc(100vh - env(safe-area-inset-top))',
         p: "0 !important",
         width: "100%",
         maxWidth: "none!important",
@@ -386,6 +454,32 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               </Select>
             </FormControl>
           )}
+          {operation === "translation" && (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="voice-select-label">
+                {dictionary.voiceSelect}
+              </InputLabel>
+              <Select
+                labelId="voice-select-label"
+                value={selectedVoice ? selectedVoice.voiceURI : ""}
+                onChange={(event: SelectChangeEvent) => {
+                  const selectedVoiceURI = event.target.value as string;
+                  const selectedVoice = voices.find(
+                    (voice) => voice.voiceURI === selectedVoiceURI
+                  );
+                  setSelectedVoice(selectedVoice || null);
+                }}
+              >
+                {voices
+                  .filter((voice) => voice.lang.startsWith(outputLanguage))
+                  .map((voice) => (
+                    <MenuItem key={voice.voiceURI} value={voice.voiceURI}>
+                      {voice.name}
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleSettingsClose} color="primary">
@@ -422,7 +516,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           <DynamicHeightList
             items={messages}
             dictionary={dictionary}
-            handlePlayMessage={handlePlayMessage}
+            handlePlayMessage={(audio, type, text) =>
+              handlePlayMessage(audio, type, text)
+            }
             handleEditMessage={handleEditMessage}
           />
         </Box>

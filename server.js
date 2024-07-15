@@ -14,6 +14,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const env = process.env.NODE_ENV;
+
+if (env === 'production') {
+    dotenv.config({ path: '.env.production' });
+} else {
+    dotenv.config({ path: '.env.development' });
+}
+
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -256,11 +265,16 @@ async function transcribeOrTranslateChunk(
     console.log("Transcription API response:", transcriptionResponseText);
     const transcription = JSON.parse(transcriptionResponseText);
 
+    // 读取wav文件并编码为base64
+    const audioBuffer = fs.readFileSync(chunkFilePath);
+    const audioBase64 = audioBuffer.toString('base64');
+
     ws.send(
       JSON.stringify({
         type: "transcription",
         text: transcription.text,
         id: messageId,
+        audio: audioBase64
       })
     );
 
@@ -299,6 +313,7 @@ async function transcribeOrTranslateChunk(
           type: "translation",
           text: translation.choices[0].message.content.trim(),
           id: messageId,
+          audio: audioBase64 // 返回相同的音频文件数据
         })
       );
     }

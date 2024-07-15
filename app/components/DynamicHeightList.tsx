@@ -19,11 +19,12 @@ interface Transcript {
   text: string;
   message?: string;
   id: string;
+  audio: string;
 }
 
 interface DynamicHeightListProps {
   items: Transcript[];
-  handlePlayMessage: (message: string) => void;
+  handlePlayMessage: (audio: string,type:string,text:string) => void;
   handleEditMessage: (index: number, newText: string) => void;
   dictionary: any;
 }
@@ -96,7 +97,7 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
                 {items[index].text}
               </Typography>
               <IconButton
-                onClick={() => handlePlayMessage(items[index].text)}
+                onClick={() => handlePlayMessage(items[index].audio, items[index].type, items[index].text)}
                 color="primary"
                 size="small"
                 sx={{ mr: 1.5 }}
