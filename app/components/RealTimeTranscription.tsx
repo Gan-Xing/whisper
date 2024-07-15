@@ -21,7 +21,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { models, getTranslatedLanguageOptions } from "@/constants"; // 请根据实际路径调整
 import DynamicHeightList from "./DynamicHeightList";
@@ -57,6 +57,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioBufferRef = useRef<Blob[]>([]);
   const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleModelChange = (event: SelectChangeEvent) => {
     const selectedModel = event.target.value;
@@ -127,6 +128,38 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     socketRef.current = ws;
     return () => ws.close();
   }, [dictionary]);
+
+  useEffect(() => {
+    const setContainerHeight = () => {
+      if (containerRef.current) {
+        const viewportHeight = window.innerHeight;
+        const safeAreaInsetTop =
+          parseInt(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--safe-area-inset-top"
+            )
+          ) || 0;
+        const safeAreaInsetBottom =
+          parseInt(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--safe-area-inset-bottom"
+            )
+          ) || 0;
+        containerRef.current.style.height = `calc(${viewportHeight}px - ${safeAreaInsetTop}px - ${safeAreaInsetBottom}px)`;
+      }
+    };
+
+    // Initial height setting
+    setContainerHeight();
+
+    // Update height on resize
+    window.addEventListener("resize", setContainerHeight);
+
+    // Clean up event listener on component unmount
+    return () => {
+      window.removeEventListener("resize", setContainerHeight);
+    };
+  }, []);
 
   const startRecording = async () => {
     setRecording(true);
@@ -233,8 +266,15 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
   return (
     <Container
-      maxWidth="md"
-      sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
+      ref={containerRef}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        // height: 'calc(100vh - env(safe-area-inset-top))',
+        p: "0 !important",
+        width: "100%",
+        maxWidth: "none!important",
+      }}
     >
       <CssBaseline />
       <AppBar position="static">
@@ -242,21 +282,38 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             {dictionary.title}
           </Typography>
-          <IconButton
-            edge="end"
-            color="inherit"
-            onClick={handleSettingsOpen}
-            sx={{
-              "&:hover": {
-                backgroundColor: "#5fa4f3",
-              },
-              "&:focus, &:focus-visible": {
-                outline: "none",
-              },
-            }}
-          >
-            <SettingsIcon />
-          </IconButton>
+          <Box>
+            <IconButton
+              color="inherit"
+              component="label"
+              onClick={handleButtonClick}
+              sx={{
+                "&:hover": {
+                  backgroundColor: "#5fa4f3",
+                },
+                "&:focus, &:focus-visible": {
+                  outline: "none",
+                },
+              }}
+            >
+              <UploadFileIcon />
+            </IconButton>
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={handleSettingsOpen}
+              sx={{
+                "&:hover": {
+                  backgroundColor: "#5fa4f3",
+                },
+                "&:focus, &:focus-visible": {
+                  outline: "none",
+                },
+              }}
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Box>
         </Toolbar>
       </AppBar>
       <Dialog open={settingsOpen} onClose={handleSettingsClose}>
@@ -370,48 +427,37 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           />
         </Box>
       </Grid>
-      <Grid container sx={{ display: "flex", pb: 1 }}>
-        <Grid item sx={{ flex: 1 }}>
-          <Button
-            variant="contained"
-            color={recording ? "secondary" : "primary"}
-            onClick={recording ? stopRecording : startRecording}
-            sx={{
-              width: "100%",
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-visible": {
-                outline: "none",
-              },
-            }}
-          >
-            {recording ? dictionary.stopRecording : dictionary.startRecording}
-          </Button>
-        </Grid>
-        <Grid item sx={{ textAlign: { xs: "left", md: "center" } }}>
-          <IconButton
-            color="primary"
-            component="label"
-            onClick={handleButtonClick}
-            sx={{
-              width: "100%",
-              backgroundColor: "rgba(25, 118, 210, 0.2)",
-              "&:hover": {
-                backgroundColor: "rgba(25, 118, 210, 0.6)",
-              },
-            }}
-          >
-            <AddIcon />
-          </IconButton>
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={handleFileUpload}
-            ref={fileInputRef}
-            style={{ display: "none" }}
-          />
-        </Grid>
+      <Grid item sx={{ display: "flex", justifyContent: "center" }}>
+        <Button
+          variant="contained"
+          color={recording ? "secondary" : "primary"}
+          onClick={recording ? stopRecording : startRecording}
+          sx={{
+            width: 200, // 设置宽度
+            height: 200, // 设置高度
+            borderRadius: "50%", // 将按钮变成圆形
+            "&:focus": {
+              outline: "none",
+            },
+            "&:focus-visible": {
+              outline: "none",
+            },
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          {recording ? dictionary.stopRecording : dictionary.startRecording}
+        </Button>
+      </Grid>
+      <Grid item sx={{ display: "none" }}>
+        <input
+          type="file"
+          accept="audio/*"
+          onChange={handleFileUpload}
+          ref={fileInputRef}
+          style={{ display: "none" }}
+        />
       </Grid>
     </Container>
   );
