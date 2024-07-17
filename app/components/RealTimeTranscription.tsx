@@ -63,6 +63,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldPlay, setShouldPlay] = useState<string | null>(null);
+  const [myFileType, setMyFileType] = useState("");
 
   const handleModelChange = (event: SelectChangeEvent) => {
     const selectedModel = event.target.value;
@@ -95,9 +96,18 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
     if (selectedOperation === "translation") {
       setOutputLanguage("fr");
-      const defaultVoice = voices.find((voice) => voice.voiceURI === "Amélie");
+      
+      let defaultVoice = null;
+      for (let i = 0; i < voices.length; i++) {
+        if (voices[i].name === "Amélie") {
+          defaultVoice = voices[i];
+          break;
+        }
+      }
+      
       setSelectedVoice(defaultVoice || null);
     }
+    
   };
 
   const handlePlayMessage = (
@@ -125,8 +135,21 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       speechSynthesis.speak(utterance);
     } else {
       // 播放音频
-      const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
-      audio.play();
+      try {
+        // 播放音频
+        const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
+        audio.play();
+
+        audio.onended = () => {
+          console.log("Audio playback finished.");
+        };
+
+        audio.onerror = (error) => {
+          console.error("Error playing audio:", error);
+        };
+      } catch (error) {
+        console.error("Error initializing audio:", error);
+      }
     }
   };
 
@@ -247,18 +270,19 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
     mediaRecorder.onstop = () => {
       setRecording(false);
-      const audioBlob = new Blob(audioBufferRef.current, {
-        type: "audio/webm",
-      });
+      const audioType = (audioBufferRef.current[0].type || 'audio/webm').split(';')[0];
+      setMyFileType(audioType)
+      const audioBlob = new Blob(audioBufferRef.current, { type: audioType });
       const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
       reader.onloadend = () => {
-        const base64data = reader.result as string;
-        if (base64data && socketRef.current) {
+        const arrayBuffer = reader.result as ArrayBuffer; // 类型断言
+        const binaryData = new Uint8Array(arrayBuffer);
+
+        if (socketRef.current) {
           socketRef.current.send(
             JSON.stringify({
               type: "audio",
-              audio: base64data.split(",")[1],
+              audio: Array.from(binaryData),
               model: model,
               language: inputLanguage,
               operation: operation,
@@ -266,11 +290,13 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
                 operation === "translation" ? outputLanguage : undefined, // 新增输出语言
               response_format: "json",
               temperature: "0",
+              fileType: audioType.split('/')[1]
             })
           );
           setStatus(dictionary.audioSent);
         }
       };
+      reader.readAsArrayBuffer(audioBlob);
       stream.getTracks().forEach((track) => track.stop());
       setStatus(dictionary.recordingStopped);
     };
@@ -288,14 +314,16 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     if (file && socketRef.current) {
       setStatus(`${dictionary.uploadingFile}: ${file.name}`);
       const reader = new FileReader();
-      reader.readAsDataURL(file);
+      reader.readAsArrayBuffer(file);
       reader.onloadend = () => {
-        const base64data = reader.result as string;
-        if (base64data) {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        if (arrayBuffer) {
+          const byteArray = new Uint8Array(arrayBuffer);
+          const bufferData = Array.from(byteArray);
           socketRef.current!.send(
             JSON.stringify({
               type: "upload",
-              audio: base64data.split(",")[1],
+              audio: bufferData,
               fileType: file.type.split("/")[1],
               model: model,
               language: inputLanguage,
@@ -341,7 +369,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {dictionary.title}
+            {dictionary.title}{myFileType}
           </Typography>
           <Box>
             <IconButton

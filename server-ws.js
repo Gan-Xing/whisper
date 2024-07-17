@@ -3,7 +3,7 @@ import express from "express";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import fetch from "node-fetch";
 import FormData from "form-data";
 import { fileURLToPath } from "url";
@@ -63,7 +63,7 @@ wss.on("connection", (ws) => {
 
     if (data.type === "audio" || data.type === "upload") {
       const buffer = Uint8Array.from(data.audio);
-
+      
       const audioType = data.fileType || "webm"; // 动态确定文件扩展名
       const filePath = path.join(
         __dirname,
@@ -73,7 +73,7 @@ wss.on("connection", (ws) => {
       fs.writeFileSync(filePath, buffer);
       console.log(`Audio file saved to ${filePath}`);
 
-      await handleAudioFile(
+      await convertAudioFile(
         filePath,
         ws,
         model,
@@ -98,7 +98,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-async function handleAudioFile(
+async function convertAudioFile(
   filePath,
   ws,
   model,
@@ -109,37 +109,37 @@ async function handleAudioFile(
   outputLanguage,
   isUpload
 ) {
+  const pcmFilePath = filePath.replace(path.extname(filePath), ".pcm");
   const wavFilePath = filePath.replace(path.extname(filePath), ".wav");
   const outputDir = path.join(__dirname, "uploads", "chunks");
 
+  console.log("pcmFilePath", pcmFilePath);
   console.log("wavFilePath", wavFilePath);
   console.log("outputDir", outputDir);
 
-  console.log(new Date().toISOString().replace("T", " ").replace("Z", ""));
-
-  await new Promise((resolve, reject) => {
-    ffmpeg(filePath)
-      .toFormat("wav")
-      .on("end", () => {
-        console.log(`Audio file successfully converted to WAV: ${wavFilePath}`);
-        resolve();
-      })
-      .on("error", (error) => {
-        console.error(`Error converting audio to WAV: ${error.message}`);
-        reject(error);
-      })
-      .save(wavFilePath);
-  });
-
-  console.log(new Date().toISOString().replace("T", " ").replace("Z", ""));
-
   try {
     if (isUpload) {
+      await new Promise((resolve, reject) => {
+        ffmpeg(filePath)
+          .toFormat("wav")
+          .on("end", () => {
+            console.log(
+              `Audio file successfully converted to WAV: ${wavFilePath}`
+            );
+            resolve();
+          })
+          .on("error", (error) => {
+            console.error(`Error converting audio to WAV: ${error.message}`);
+            reject(error);
+          })
+          .save(wavFilePath);
+      });
+
       const pythonProcess = spawn("python", [
         "split_audio_vad.py",
         wavFilePath,
         outputDir,
-        "30",
+        "30", // Split segments with a minimum duration of 15 seconds
       ]);
       const chunkQueue = [];
 
@@ -159,9 +159,19 @@ async function handleAudioFile(
 
       pythonProcess.on("close", async (code) => {
         console.log(`Python process exited with code: ${code}`);
+        try {
+          // fs.unlinkSync(wavFilePath);
+          console.log(`Deleted original WAV file: ${wavFilePath}`);
+        } catch (error) {
+          console.error(
+            `Error deleting temporary WAV file: ${wavFilePath}`,
+            error
+          );
+        }
+
         while (chunkQueue.length > 0) {
           const chunkFilePath = chunkQueue.shift();
-          await transcribeOrTranslate(
+          await transcribeOrTranslateHTTP(
             chunkFilePath,
             ws,
             model,
@@ -171,15 +181,49 @@ async function handleAudioFile(
             operation,
             outputLanguage
           );
-          fs.unlinkSync(chunkFilePath);
-          console.log(`Deleted temporary file: ${chunkFilePath}`);
+          try {
+            // fs.unlinkSync(chunkFilePath);
+            console.log(`Deleted temporary file: ${chunkFilePath}`);
+          } catch (error) {
+            console.error(
+              `Error deleting temporary file: ${chunkFilePath}`,
+              error
+            );
+          }
         }
-        cleanupFiles([filePath, wavFilePath]);
-        console.log(`Deleted original file: ${filePath}`);
+
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`Deleted original file: ${filePath}`);
+        } catch (error) {
+          console.error(`Error deleting original file: ${filePath}`, error);
+        }
       });
     } else {
-      await transcribeOrTranslate(
-        wavFilePath,
+      console.log(new Date().toISOString().replace('T', ' ').replace('Z', ''));
+
+      await new Promise((resolve, reject) => {
+        ffmpeg(filePath)
+          .audioChannels(1)
+          .audioFrequency(16000)
+          .audioCodec("pcm_s16le")
+          .toFormat("s16le")
+          .on("end", () => {
+            console.log(
+              `Audio file successfully converted to PCM: ${pcmFilePath}`
+            );
+            resolve();
+          })
+          .on("error", (error) => {
+            console.error(`Error converting audio to PCM: ${error.message}`);
+            reject(error);
+          })
+          .save(pcmFilePath);
+      });
+      console.log(new Date().toISOString().replace('T', ' ').replace('Z', ''));
+  
+      await transcribeOrTranslateChunk(
+        pcmFilePath,
         ws,
         model,
         language,
@@ -188,7 +232,6 @@ async function handleAudioFile(
         operation,
         outputLanguage
       );
-      cleanupFiles([filePath, wavFilePath]);
     }
   } catch (error) {
     console.error("Error during conversion and sending:", error);
@@ -198,11 +241,108 @@ async function handleAudioFile(
         message: "Error converting or sending audio",
       })
     );
-    cleanupFiles([filePath, wavFilePath]);
+    cleanupFiles([filePath, pcmFilePath, wavFilePath]);
   }
 }
 
-async function transcribeOrTranslate(
+async function transcribeOrTranslateChunk(
+  chunkFilePath,
+  ws,
+  model,
+  language,
+  responseFormat,
+  temperature,
+  operation,
+  outputLanguage
+) {
+  const audioBuffer = fs.readFileSync(chunkFilePath);
+  const wsPythonUrl = `ws://100.105.162.69:8000/v1/audio/transcriptions?model=${encodeURIComponent(
+    model
+  )}&language=${encodeURIComponent(
+    language
+  )}&response_format=${encodeURIComponent(
+    responseFormat
+  )}&temperature=${encodeURIComponent(temperature)}`;
+  console.log(new Date().toISOString().replace('T', ' ').replace('Z', ''));
+
+  const wsPython = new WebSocket(wsPythonUrl);
+
+  let messageReceived = false;
+
+  wsPython.on("open", () => {
+    wsPython.send(audioBuffer); // Send binary data
+  });
+
+  wsPython.on("message", async (message) => {
+    if (messageReceived) return; // Ignore subsequent messages
+    messageReceived = true;
+
+    const transcription = JSON.parse(message);
+    console.log("Received transcription:", transcription);
+    console.log(new Date().toISOString().replace('T', ' ').replace('Z', ''));
+
+    ws.send(
+      JSON.stringify({
+        type: "transcription",
+        text: transcription.text,
+        id: uuidv4(),
+        audio: audioBuffer.toString("base64"),
+      })
+    );
+
+    if (operation === "translation") {
+      const translationResponse = await fetch(
+        `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a professional, authentic machine translation engine.",
+              },
+              {
+                role: "user",
+                content: `Translate the following source text to ${outputLanguage}, Output translation directly without any additional text.\nSource Text: ${transcription.text}\nTranslated Text:`,
+              },
+            ],
+          }),
+        }
+      );
+
+      const translationResponseText = await translationResponse.text();
+      console.log("Translation API response:", translationResponseText);
+      const translation = JSON.parse(translationResponseText);
+
+      ws.send(
+        JSON.stringify({
+          type: "translation",
+          text: translation.choices[0].message.content.trim(),
+          id: uuidv4(),
+          audio: audioBuffer.toString("base64"), 
+        })
+      );
+    }
+  });
+
+  wsPython.on("close", () => {
+    console.log("WebSocket connection to Python server closed");
+    cleanupFiles([chunkFilePath]);
+  });
+
+  wsPython.on("error", (error) => {
+    console.error("WebSocket error:", error);
+    cleanupFiles([chunkFilePath]);
+  });
+}
+
+async function transcribeOrTranslateHTTP(
   chunkFilePath,
   ws,
   model,
@@ -236,7 +376,7 @@ async function transcribeOrTranslate(
     // 读取wav文件并编码为base64
     const audioBuffer = fs.readFileSync(chunkFilePath);
     const audioBase64 = audioBuffer.toString("base64");
-    console.log(new Date().toISOString().replace("T", " ").replace("Z", ""));
+    console.log(new Date().toISOString().replace('T', ' ').replace('Z', ''));
 
     ws.send(
       JSON.stringify({
