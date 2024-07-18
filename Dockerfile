@@ -44,6 +44,9 @@ RUN pnpm install
 # 复制所有项目文件到工作目录
 COPY . .
 
+# 设置环境变量
+ENV NODE_ENV=production
+
 # 构建Next.js应用程序
 RUN pnpm run build
 
@@ -52,7 +55,6 @@ RUN python3 -m venv /app/venv && \
     /app/venv/bin/pip install --no-cache-dir webrtcvad
 
 # 设置环境变量
-ENV NODE_ENV=production
 ENV PATH="/app/venv/bin:$PATH"
 
 # 暴露应用运行的端口
