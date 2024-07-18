@@ -247,7 +247,17 @@ async function transcribeOrTranslate(
       })
     );
 
-    if (operation === "translation") {
+    if (operation === "translation" || operation === "conversation") {
+      const systemPrompt =
+        operation === "translation"
+          ? "You are a professional, authentic machine translation engine."
+          : "You are a helpful assistant engaging in a conversation.";
+
+      const userPrompt =
+        operation === "translation"
+          ? `Translate the following source text to ${outputLanguage}, Output translation directly without any additional text.\nSource Text: ${transcription.text}\nTranslated Text:`
+          : `Respond to the following input in ${outputLanguage} as if you were having a conversation. Keep your responses concise and brief. Output response directly without any additional text.\nInput: ${transcription.text}\nResponse:`;
+
       const translationResponse = await fetch(
         `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
         {
@@ -261,12 +271,11 @@ async function transcribeOrTranslate(
             messages: [
               {
                 role: "system",
-                content:
-                  "You are a professional, authentic machine translation engine.",
+                content: systemPrompt,
               },
               {
                 role: "user",
-                content: `Translate the following source text to ${outputLanguage}, Output translation directly without any additional text.\nSource Text: ${transcription.text}\nTranslated Text:`,
+                content: userPrompt,
               },
             ],
           }),
@@ -279,10 +288,10 @@ async function transcribeOrTranslate(
 
       ws.send(
         JSON.stringify({
-          type: "translation",
+          type: operation,
           text: translation.choices[0].message.content.trim(),
           id: messageId,
-          audio: audioBase64, // 返回相同的音频文件数据
+          audio: audioBase64,
         })
       );
     }

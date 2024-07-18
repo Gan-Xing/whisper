@@ -112,6 +112,7 @@
   "state": "状态:",
   "transcriptionSuccess": "转录成功",
   "translationSuccess":"翻译成功",
+  "replySuccess":"回复成功",
   "error": "错误",
   "pongReceived": "收到服务器的pong",
   "webSocketConnected": "WebSocket 连接已建立",
@@ -129,6 +130,7 @@
   "operationType": "操作类型",
   "transcription": "转录",
   "translation": "翻译",
+  "conversation":"对话",
   "inputLanguage": "输入语言",
   "outputLanguage": "输出语言",
   "voiceSelect":"音色选择"

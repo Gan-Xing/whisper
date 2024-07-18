@@ -112,6 +112,7 @@
   "state": "State:",
   "transcriptionSuccess": "Transcription Successful",
   "translationSuccess":"Translation Successful",
+  "replySuccess":"Reply Successful",
   "error": "Error",
   "pongReceived": "Received pong from server",
   "webSocketConnected": "WebSocket Connected",
@@ -129,7 +130,9 @@
   "operationType": "Operation Type",
   "transcription": "Transcription",
   "translation": "Translation",
+  "conversation":"Conversation",
   "inputLanguage": "Input Language",
   "outputLanguage": "Output Language",
   "voiceSelect":"Voice Select"
+
 }

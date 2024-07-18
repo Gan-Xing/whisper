@@ -96,7 +96,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
     if (selectedOperation === "translation") {
       setOutputLanguage("fr");
-      
+
       let defaultVoice = null;
       for (let i = 0; i < voices.length; i++) {
         if (voices[i].name === "Amélie") {
@@ -104,10 +104,21 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           break;
         }
       }
-      
+
+      setSelectedVoice(defaultVoice || null);
+    } else if (selectedOperation === "conversation") {
+      setOutputLanguage("zh");
+
+      let defaultVoice = null;
+      for (let i = 0; i < voices.length; i++) {
+        if (voices[i].name === "美嘉") {
+          defaultVoice = voices[i];
+          break;
+        }
+      }
+
       setSelectedVoice(defaultVoice || null);
     }
-    
   };
 
   const handlePlayMessage = (
@@ -115,7 +126,11 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     type: string,
     text: string
   ) => {
-    if ((type === "translation" && selectedVoice) || audioBase64 === "#@$") {
+    if (
+      (type === "translation" && selectedVoice) ||
+      (type === "conversation" && selectedVoice) ||
+      audioBase64 === "#@$"
+    ) {
       // 清空语音队列
       speechSynthesis.cancel();
 
@@ -124,8 +139,7 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       utterance.voice = selectedVoice;
 
       // 添加事件监听
-      utterance.onend = function (event) {
-      };
+      utterance.onend = function (event) {};
 
       utterance.onerror = function (event) {
         console.error("SpeechSynthesisUtterance.onerror:", event.error);
@@ -167,15 +181,21 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     const ws = new WebSocket(wsUrl);
     ws.onmessage = (event) => {
       const data: Transcript = JSON.parse(event.data);
-      if (data.type === "transcription" || data.type === "translation") {
+      if (
+        data.type === "transcription" ||
+        data.type === "translation" ||
+        data.type === "conversation"
+      ) {
         setMessages((prevMessages) => [...prevMessages, data]);
         setStatus(
           data.type === "transcription"
             ? dictionary.transcriptionSuccess
-            : dictionary.translationSuccess
+            : data.type === "translation"
+            ? dictionary.translationSuccess
+            : dictionary.replySuccess
         );
         // 如果是翻译类型，自动播放音频
-        if (data.type === "translation") {
+        if (data.type === "translation" || data.type === "conversation") {
           setShouldPlay(data.text);
         }
       } else if (data.type === "error") {
@@ -270,8 +290,10 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
 
     mediaRecorder.onstop = () => {
       setRecording(false);
-      const audioType = (audioBufferRef.current[0].type || 'audio/webm').split(';')[0];
-      setMyFileType(audioType)
+      const audioType = (audioBufferRef.current[0].type || "audio/webm").split(
+        ";"
+      )[0];
+      setMyFileType(audioType);
       const audioBlob = new Blob(audioBufferRef.current, { type: audioType });
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -287,10 +309,12 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               language: inputLanguage,
               operation: operation,
               outputLanguage:
-                operation === "translation" ? outputLanguage : undefined, // 新增输出语言
+                operation === "translation" || operation === "conversation"
+                  ? outputLanguage
+                  : undefined, // 新增输出语言
               response_format: "json",
               temperature: "0",
-              fileType: audioType.split('/')[1]
+              fileType: audioType.split("/")[1],
             })
           );
           setStatus(dictionary.audioSent);
@@ -329,7 +353,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
               language: inputLanguage,
               operation: operation, // 新增操作
               outputLanguage:
-                operation === "translation" ? outputLanguage : undefined, // 新增输出语言
+                operation === "translation" || operation === "conversation"
+                  ? outputLanguage
+                  : undefined, // 新增输出语言
               response_format: "json",
               temperature: "0",
             })
@@ -369,7 +395,8 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {dictionary.title}{myFileType}
+            {dictionary.title}
+            {myFileType}
           </Typography>
           <Box>
             <IconButton
@@ -421,6 +448,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
                 {dictionary.transcription}
               </MenuItem>
               <MenuItem value="translation">{dictionary.translation}</MenuItem>
+              <MenuItem value="conversation">
+                {dictionary.conversation}
+              </MenuItem>
             </Select>
           </FormControl>
           <FormControl fullWidth sx={{ mb: 2 }}>
@@ -456,50 +486,50 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
                 ))}
             </Select>
           </FormControl>
-          {operation === "translation" && (
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="output-language-select-label">
-                {dictionary.outputLanguage}
-              </InputLabel>
-              <Select
-                labelId="output-language-select-label"
-                value={outputLanguage}
-                onChange={handleOutputLanguageChange}
-              >
-                {largeV3LanguagesKeys &&
-                  largeV3LanguagesKeys.map((lang) => (
-                    <MenuItem key={lang} value={lang}>
-                      {translatedLanguageOptions[lang]}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-          )}
-          {operation === "translation" && (
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="voice-select-label">
-                {dictionary.voiceSelect}
-              </InputLabel>
-              <Select
-                labelId="voice-select-label"
-                value={selectedVoice ? selectedVoice.voiceURI : ""}
-                onChange={(event: SelectChangeEvent) => {
-                  const selectedVoiceURI = event.target.value as string;
-                  const selectedVoice = voices.find(
-                    (voice) => voice.voiceURI === selectedVoiceURI
-                  );
-                  setSelectedVoice(selectedVoice || null);
-                }}
-              >
-                {voices
-                  .filter((voice) => voice.lang.startsWith(outputLanguage))
-                  .map((voice) => (
-                    <MenuItem key={voice.voiceURI} value={voice.voiceURI}>
-                      {voice.name}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
+          {(operation === "translation" || operation === "conversation") && (
+            <>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="output-language-select-label">
+                  {dictionary.outputLanguage}
+                </InputLabel>
+                <Select
+                  labelId="output-language-select-label"
+                  value={outputLanguage}
+                  onChange={handleOutputLanguageChange}
+                >
+                  {largeV3LanguagesKeys &&
+                    largeV3LanguagesKeys.map((lang) => (
+                      <MenuItem key={lang} value={lang}>
+                        {translatedLanguageOptions[lang]}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="voice-select-label">
+                  {dictionary.voiceSelect}
+                </InputLabel>
+                <Select
+                  labelId="voice-select-label"
+                  value={selectedVoice ? selectedVoice.voiceURI : ""}
+                  onChange={(event: SelectChangeEvent) => {
+                    const selectedVoiceURI = event.target.value as string;
+                    const selectedVoice = voices.find(
+                      (voice) => voice.voiceURI === selectedVoiceURI
+                    );
+                    setSelectedVoice(selectedVoice || null);
+                  }}
+                >
+                  {voices
+                    .filter((voice) => voice.lang.startsWith(outputLanguage))
+                    .map((voice) => (
+                      <MenuItem key={voice.voiceURI} value={voice.voiceURI}>
+                        {voice.name}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+            </>
           )}
         </DialogContent>
         <DialogActions>
