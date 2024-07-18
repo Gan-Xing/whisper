@@ -130,5 +130,6 @@
   "transcription": "Transcription",
   "translation": "Translation",
   "inputLanguage": "Input Language",
-  "outputLanguage": "Output Language"
+  "outputLanguage": "Output Language",
+  "voiceSelect":"Voice Select"
 }

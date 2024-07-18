@@ -130,5 +130,6 @@
   "transcription": "转录",
   "translation": "翻译",
   "inputLanguage": "输入语言",
-  "outputLanguage": "输出语言"
+  "outputLanguage": "输出语言",
+  "voiceSelect":"音色选择"
 }
