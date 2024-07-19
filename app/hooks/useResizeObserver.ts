@@ -1,9 +1,6 @@
+import { Dimensions } from '@/types';
 import { MutableRefObject, useEffect, useState } from 'react';
 
-interface Dimensions {
-  width: number;
-  height: number;
-}
 
 export const useResizeObserver = (ref: MutableRefObject<HTMLElement | null>): Dimensions => {
   const [dimensions, setDimensions] = useState<Dimensions>({ width: 0, height: 0 });

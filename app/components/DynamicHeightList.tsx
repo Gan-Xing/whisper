@@ -13,14 +13,7 @@ import {
 } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
-
-interface Transcript {
-  type: string;
-  text: string;
-  message?: string;
-  id: string;
-  audio: string;
-}
+import { Transcript } from "@/types";
 
 interface DynamicHeightListProps {
   items: Transcript[];
