@@ -8,11 +8,11 @@ import os
 def read_wave(path):
     with contextlib.closing(wave.open(path, 'rb')) as wf:
         num_channels = wf.getnchannels()
-        assert num_channels == 1
+        assert num_channels == 1, f"Expected mono audio, but got {num_channels} channels"
         sample_width = wf.getsampwidth()
-        assert sample_width == 2
+        assert sample_width == 2, f"Expected sample width of 2 bytes, but got {sample_width} bytes"
         sample_rate = wf.getframerate()
-        assert sample_rate in (8000, 16000, 22050, 32000, 44100, 48000, 96000)
+        assert sample_rate in (8000, 16000, 22050, 32000, 44100, 48000, 96000), f"Unexpected sample rate: {sample_rate}"
         pcm_data = wf.readframes(wf.getnframes())
         return pcm_data, sample_rate
 

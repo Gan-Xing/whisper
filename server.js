@@ -38,7 +38,7 @@ const server = app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server,maxPayload: 40000 * 1024 * 1024   });
 
 wss.on("connection", (ws) => {
   console.log("Client connected");
@@ -119,7 +119,9 @@ async function handleAudioFile(
 
   await new Promise((resolve, reject) => {
     ffmpeg(filePath)
-      .toFormat("wav")
+    .audioChannels(1)
+    .audioCodec('pcm_s16le')
+    .toFormat("wav")
       .on("end", () => {
         console.log(`Audio file successfully converted to WAV: ${wavFilePath}`);
         resolve();
@@ -155,10 +157,26 @@ async function handleAudioFile(
 
       pythonProcess.stderr.on("data", (data) => {
         console.error(`Python process stderr: ${data}`);
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message: `Python process error: ${data}`,
+          })
+        );
       });
 
       pythonProcess.on("close", async (code) => {
         console.log(`Python process exited with code: ${code}`);
+        if (code !== 0) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: `Python process exited with code: ${code}`,
+            })
+          );
+          cleanupFiles([filePath, wavFilePath]);
+          return;
+        }
         while (chunkQueue.length > 0) {
           const chunkFilePath = chunkQueue.shift();
           await transcribeOrTranslate(
