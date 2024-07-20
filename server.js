@@ -11,6 +11,7 @@ import { dirname } from "path";
 import ffmpeg from "fluent-ffmpeg";
 import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 
@@ -33,12 +34,15 @@ const port = process.env.NEXT_PUBLIC_WS_PORT || 3001; // 从环境变量中读�
 const upload = multer({ dest: path.join(__dirname, "uploads/") }); // 修改路径
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
+// 配置CORS
+app.use(cors());
 
 const server = app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
 
-const wss = new WebSocketServer({ server,maxPayload: 40000 * 1024 * 1024   });
+const wss = new WebSocketServer({ server, maxPayload: 40000 * 1024 * 1024 });
 
 wss.on("connection", (ws) => {
   console.log("Client connected");
@@ -119,9 +123,9 @@ async function handleAudioFile(
 
   await new Promise((resolve, reject) => {
     ffmpeg(filePath)
-    .audioChannels(1)
-    .audioCodec('pcm_s16le')
-    .toFormat("wav")
+      .audioChannels(1)
+      .audioCodec("pcm_s16le")
+      .toFormat("wav")
       .on("end", () => {
         console.log(`Audio file successfully converted to WAV: ${wavFilePath}`);
         resolve();
@@ -333,3 +337,135 @@ function cleanupFiles(files) {
     }
   });
 }
+
+const splitText = (text, maxLength) => {
+  const chunks = [];
+  let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + maxLength, text.length);
+    chunks.push(text.slice(start, end));
+    start = end;
+  }
+  return chunks;
+};
+
+const summarizeTextInChinese = async (text) => {
+  const systemPrompt = `
+  You are a professional summarizer.
+  Please summarize the following text in Chinese to ensure that it is clear, concise, and coherent. The specific requirements are as follows:
+
+  1. Extract the main points and essential information.
+  2. Maintain the original meaning and overall logic of the content.
+  3. Ensure the summary is natural and easy to read, without oversimplifying the original text.
+
+  Original text:
+  ${text}
+
+  Summary in Chinese:
+  `;
+  const response = await fetch(
+    `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+        ],
+      }),
+    }
+  );
+  const responseText = await response.text();
+  return JSON.parse(responseText).choices[0].message.content.trim();
+};
+
+app.post("/optimize-text", async (req, res) => {
+  const { texts } = req.body;
+
+  if (!texts || !Array.isArray(texts)) {
+    return res
+      .status(400)
+      .json({ error: "Invalid input. 'texts' should be an array of strings." });
+  }
+
+  try {
+    const optimizedTexts = [];
+    const maxLength = 200;
+
+    for (const text of texts) {
+      const systemPrompt = `
+      You are a professional text optimizer.
+      Please clean and optimize the following speech recognition text to ensure that it is clear, coherent, and meaningful. The specific requirements are as follows:
+
+      1. Correct any recognition errors, such as changing "宗教" to "中交".
+      2. Remove meaningless parts, such as incomplete sentences, filler words (uh, um, etc.).
+      3. Retain all meaningful content and ensure sentence structure is clear.
+      4. Maintain the original coherence and overall logic of the content.
+      5. Ensure the optimized text is natural and easy to read, without oversimplifying the original text.
+      6. Preserve the truncation of the text, do not attempt to merge or complete it.
+
+      Original text:
+      ${text}
+
+      Optimized text:
+      `;
+      const response = await fetch(
+        `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content: systemPrompt,
+              },
+              {
+                role: "user",
+                content: text,
+              },
+            ],
+          }),
+        }
+      );
+      const responseText = await response.text();
+      const optimizedText =
+        JSON.parse(responseText).choices[0].message.content.trim();
+      optimizedTexts.push(optimizedText);
+    }
+
+    const combinedText = optimizedTexts.join("\n");
+    const paragraphs = splitText(combinedText, maxLength);
+    const summaries = [];
+
+    for (const paragraph of paragraphs) {
+      summaries.push(await summarizeTextInChinese(paragraph));
+    }
+
+    const combinedSummary = summaries.join(" ");
+
+    if (combinedSummary.length > 5000) {
+      const finalSummary = await summarizeTextInChinese(combinedSummary);
+      return res.json({ combinedSummary, finalSummary });
+    } else {
+      const finalSummary = combinedSummary;
+      return res.json({ combinedText, combinedSummary, finalSummary });
+    }
+  } catch (error) {
+    console.error("Error optimizing and summarizing text:", error);
+    return res
+      .status(500)
+      .json({ error: "Error optimizing and summarizing text" });
+  }
+});

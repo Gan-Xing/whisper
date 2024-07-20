@@ -14,12 +14,13 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { models, getTranslatedLanguageOptions } from "@/constants"; // 请根据实际路径调整
+import DownloadIcon from "@mui/icons-material/Download";
+import { models, getTranslatedLanguageOptions } from "@/constants";
 import DynamicHeightList from "./DynamicHeightList";
 import SettingsDialog from "./SettingsDialog";
 import AudioRecorder from "./AudioRecorder";
 import { RealTimeTranscriptionProps } from "@/types";
-import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription"; // 请根据实际路径调整
+import { useRealTimeTranscription } from "@/hooks/useRealTimeTranscription";
 
 const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   dictionary,
@@ -69,8 +70,70 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     setSettingsOpen(false);
   };
 
+  const handleDownload = async () => {
+    const texts = messages.map((message) => message.text);
+    const tranPort = process.env.NEXT_PUBLIC_WS_PORT || 3001;
+
+    try {
+      const response = await fetch(
+        `http://localhost:${tranPort}/optimize-text`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ texts }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // 创建下载内容
+        let content =
+          "全文内容：\n" +
+          result.combinedText +
+          "\n\n分段总结：\n" +
+          result.combinedSummary +
+          "\n\n总结：\n" +
+          result.finalSummary;
+
+        // 创建Blob对象
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+
+        // 获取当前时间戳
+        const timestamp = new Date()
+          .toISOString()
+          .replace(/[-:]/g, "")
+          .replace(/\..+/, "");
+
+        // 创建下载链接
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `summary_${timestamp}.txt`;
+
+        // 触发下载
+        document.body.appendChild(link);
+        link.click();
+
+        // 移除链接
+        document.body.removeChild(link);
+      } else {
+        console.error("Error optimizing texts:", result.error);
+      }
+    } catch (error) {
+      console.error("Error sending request:", error);
+    }
+  };
+
   const handlePlayMessageWithCallback = useCallback(
-    (audio: string, type: string, text: string, onEnded: () => void, onPlayPause: (isPlaying: boolean) => void) => {
+    (
+      audio: string,
+      type: string,
+      text: string,
+      onEnded: () => void,
+      onPlayPause: (isPlaying: boolean) => void
+    ) => {
       handlePlayMessage(audio, type, text, onEnded, onPlayPause);
     },
     [handlePlayMessage]
@@ -95,6 +158,21 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
             {myFileType}
           </Typography>
           <Box>
+            <IconButton
+              color="inherit"
+              component="label"
+              onClick={handleDownload} // 下载按钮的点击事件
+              sx={{
+                "&:hover": {
+                  backgroundColor: "#5fa4f3",
+                },
+                "&:focus, &:focus-visible": {
+                  outline: "none",
+                },
+              }}
+            >
+              <DownloadIcon />
+            </IconButton>
             <IconButton
               color="inherit"
               component="label"
