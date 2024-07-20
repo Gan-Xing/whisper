@@ -12,7 +12,8 @@ export const useRealTimeTranscription = (dictionary: any) => {
   const [inputLanguage, setInputLanguage] = useState("zh");
   const [outputLanguage, setOutputLanguage] = useState("fr");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [selectedVoice, setSelectedVoice] =
+    useState<SpeechSynthesisVoice | null>(null);
   const [operation, setOperation] = useState("transcription");
   const [shouldPlay, setShouldPlay] = useState<string | null>(null);
   const [myFileType, setMyFileType] = useState("");
@@ -22,11 +23,14 @@ export const useRealTimeTranscription = (dictionary: any) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioBufferRef = useRef<Blob[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const translatedLanguageOptions = getTranslatedLanguageOptions(dictionary);
   const largeV3LanguagesKeys = Object.keys(translatedLanguageOptions);
   const defaultLanguagesKeys = largeV3LanguagesKeys.slice(0, -1);
-  const [langOptions, setLangOptions] = useState<string[]>(largeV3LanguagesKeys);
+  const [langOptions, setLangOptions] =
+    useState<string[]>(largeV3LanguagesKeys);
 
   const handleModelChange = (event: SelectChangeEvent) => {
     const selectedModel = event.target.value;
@@ -87,7 +91,9 @@ export const useRealTimeTranscription = (dictionary: any) => {
   const handlePlayMessage = (
     audioBase64: string,
     type: string,
-    text: string
+    text: string,
+    onEnded: () => void,
+    onPlayPause: (isPlaying: boolean) => void
   ) => {
     if (
       (type === "translation" && selectedVoice) ||
@@ -102,30 +108,56 @@ export const useRealTimeTranscription = (dictionary: any) => {
       utterance.voice = selectedVoice;
 
       // 添加事件监听
-      utterance.onend = function (event) {};
+      utterance.onend = function (event) {
+        onEnded(); // 在TTS结束时调用回调
+        onPlayPause(false);
+      };
 
       utterance.onerror = function (event) {
         console.error("SpeechSynthesisUtterance.onerror:", event.error);
+        onEnded(); // 在错误时也调用回调
+        onPlayPause(false);
       };
 
       // 调用 speak 方法
       speechSynthesis.speak(utterance);
+      onPlayPause(true);
     } else {
       // 播放音频
       try {
-        // 播放音频
-        const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
-        audio.play();
+        if (audioRef.current) {
+          if (isPlaying) {
+            audioRef.current.pause();
+            onPlayPause(false);
+          } else {
+            audioRef.current.play();
+            onPlayPause(true);
+          }
+        } else {
+          const audio = new Audio(`data:audio/wav;base64,${audioBase64}`);
+          audioRef.current = audio;
+          audio.play();
+          onPlayPause(true);
 
-        audio.onended = () => {
-          console.log("Audio playback finished.");
-        };
+          audio.onended = () => {
+            console.log("Audio playback finished.");
+            onEnded(); // 在音频播放结束时调用回调
+            onPlayPause(false);
+            audioRef.current = null;
+          };
 
-        audio.onerror = (error) => {
-          console.error("Error playing audio:", error);
-        };
+          audio.onerror = (error) => {
+            console.error("Error playing audio:", error);
+            onEnded(); // 在错误时也调用回调
+            onPlayPause(false);
+            audioRef.current = null;
+          };
+        }
       } catch (error) {
         console.error("Error initializing audio:", error);
+        onEnded(); // 在初始化错误时也调用回调
+        onPlayPause(false);
+        audioRef.current = null;
       }
     }
   };
@@ -152,6 +184,7 @@ export const useRealTimeTranscription = (dictionary: any) => {
         // 如果是翻译类型，自动播放音频
         if (data.type === "translation" || data.type === "conversation") {
           setShouldPlay(data.text);
+          setIsPlaying(true); // 自动播放时设置播放状态
         }
       } else if (data.type === "error") {
         setStatus(`${dictionary.error}: ${data.message}`);
@@ -221,7 +254,7 @@ export const useRealTimeTranscription = (dictionary: any) => {
 
   useEffect(() => {
     if (shouldPlay) {
-      handlePlayMessage("", "translation", shouldPlay);
+      handlePlayMessage("", "translation", shouldPlay, () => setShouldPlay(null), setIsPlaying);
       setShouldPlay(null);
     }
   }, [shouldPlay]);
@@ -262,6 +295,8 @@ export const useRealTimeTranscription = (dictionary: any) => {
     handleEditMessage,
     containerRef,
     langOptions,
-    largeV3LanguagesKeys
+    largeV3LanguagesKeys,
+    isPlaying, // 将isPlaying状态返回
+    setIsPlaying, // 将setIsPlaying函数返回
   };
 };

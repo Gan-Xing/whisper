@@ -1,6 +1,6 @@
 // app/components/RealTimeTranscription.tsx
 "use client";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Typography,
   Container,
@@ -52,7 +52,9 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
     containerRef,
     langOptions,
     largeV3LanguagesKeys,
-    setStatus
+    setStatus,
+    isPlaying,
+    setIsPlaying,
   } = useRealTimeTranscription(dictionary);
 
   const translatedLanguageOptions = getTranslatedLanguageOptions(dictionary);
@@ -66,6 +68,13 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
   const handleSettingsClose = () => {
     setSettingsOpen(false);
   };
+
+  const handlePlayMessageWithCallback = useCallback(
+    (audio: string, type: string, text: string, onEnded: () => void, onPlayPause: (isPlaying: boolean) => void) => {
+      handlePlayMessage(audio, type, text, onEnded, onPlayPause);
+    },
+    [handlePlayMessage]
+  );
 
   return (
     <Container
@@ -174,10 +183,10 @@ const RealTimeTranscription: React.FC<RealTimeTranscriptionProps> = ({
           <DynamicHeightList
             items={messages}
             dictionary={dictionary}
-            handlePlayMessage={(audio, type, text) =>
-              handlePlayMessage(audio, type, text)
-            }
+            handlePlayMessage={handlePlayMessageWithCallback}
             handleEditMessage={handleEditMessage}
+            isPlaying={isPlaying}
+            setIsPlaying={setIsPlaying}
           />
         </Box>
       </Grid>
