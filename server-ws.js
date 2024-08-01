@@ -291,12 +291,12 @@ async function transcribeOrTranslateChunk(
     );
 
     if (operation === "translation") {
-      const translationResponse = await fetch(
-        `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+      const LLMResponse = await fetch(
+        `${process.env.LLM_API_BASE_URL}/v1/chat/completions`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+            Authorization: `Bearer ${process.env.LLM_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -316,14 +316,14 @@ async function transcribeOrTranslateChunk(
         }
       );
 
-      const translationResponseText = await translationResponse.text();
-      console.log("Translation API response:", translationResponseText);
-      const translation = JSON.parse(translationResponseText);
+      const LLMResponseText = await LLMResponse.text();
+      console.log("LLM API response:", LLMResponseText);
+      const LLM = JSON.parse(LLMResponseText);
 
       ws.send(
         JSON.stringify({
           type: "translation",
-          text: translation.choices[0].message.content.trim(),
+          text: LLM.choices[0].message.content.trim(),
           id: uuidv4(),
           audio: audioBuffer.toString("base64"), 
         })
@@ -388,12 +388,12 @@ async function transcribeOrTranslateHTTP(
     );
 
     if (operation === "translation") {
-      const translationResponse = await fetch(
-        `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+      const LLMResponse = await fetch(
+        `${process.env.LLM_API_BASE_URL}/v1/chat/completions`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+            Authorization: `Bearer ${process.env.LLM_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -413,14 +413,14 @@ async function transcribeOrTranslateHTTP(
         }
       );
 
-      const translationResponseText = await translationResponse.text();
-      console.log("Translation API response:", translationResponseText);
-      const translation = JSON.parse(translationResponseText);
+      const LLMResponseText = await LLMResponse.text();
+      console.log("LLM API response:", LLMResponseText);
+      const LLM = JSON.parse(LLMResponseText);
 
       ws.send(
         JSON.stringify({
           type: "translation",
-          text: translation.choices[0].message.content.trim(),
+          text: LLM.choices[0].message.content.trim(),
           id: messageId,
           audio: audioBase64, // 返回相同的音频文件数据
         })

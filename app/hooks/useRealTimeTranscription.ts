@@ -296,7 +296,7 @@ export const useRealTimeTranscription = (dictionary: any) => {
     containerRef,
     langOptions,
     largeV3LanguagesKeys,
-    isPlaying, // 将isPlaying状态返回
-    setIsPlaying, // 将setIsPlaying函数返回
+    isPlaying,
+    setIsPlaying,
   };
 };

@@ -73,8 +73,13 @@ wss.on("connection", (ws) => {
         __dirname,
         `uploads/audio_${Date.now()}.${audioType}`
       ); // 动态确定文件扩展名
-
-      fs.writeFileSync(filePath, buffer);
+      console.log("保存路径",filePath,"保存类型",audioType,"保存二进制",buffer)
+      try {
+        fs.writeFileSync(filePath, buffer);
+      }catch(e) {
+        console.log('保存失败',e)
+      }
+      
       console.log(`Audio file saved to ${filePath}`);
 
       await handleAudioFile(
@@ -280,12 +285,12 @@ async function transcribeOrTranslate(
           ? `Translate the following source text to ${outputLanguage}, Output translation directly without any additional text.\nSource Text: ${transcription.text}\nTranslated Text:`
           : `Respond to the following input in ${outputLanguage} as if you were having a conversation. Keep your responses concise and brief. Output response directly without any additional text.\nInput: ${transcription.text}\nResponse:`;
 
-      const translationResponse = await fetch(
-        `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+      const LLMResponse = await fetch(
+        `${process.env.LLM_API_BASE_URL}/v1/chat/completions`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+            Authorization: `Bearer ${process.env.LLM_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -304,14 +309,14 @@ async function transcribeOrTranslate(
         }
       );
 
-      const translationResponseText = await translationResponse.text();
-      console.log("Translation API response:", translationResponseText);
-      const translation = JSON.parse(translationResponseText);
+      const LLMResponseText = await LLMResponse.text();
+      console.log("LLM API response:", LLMResponseText);
+      const LLM = JSON.parse(LLMResponseText);
 
       ws.send(
         JSON.stringify({
           type: operation,
-          text: translation.choices[0].message.content.trim(),
+          text: LLM.choices[0].message.content.trim(),
           id: messageId,
           audio: audioBase64,
         })
@@ -364,11 +369,11 @@ const summarizeTextInChinese = async (text) => {
   Summary in Chinese:
   `;
   const response = await fetch(
-    `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+    `${process.env.LLM_API_BASE_URL}/v1/chat/completions`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+        Authorization: `Bearer ${process.env.LLM_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -417,11 +422,11 @@ app.post("/optimize-text", async (req, res) => {
       Optimized text:
       `;
       const response = await fetch(
-        `${process.env.TRANSLATION_API_BASE_URL}/v1/chat/completions`,
+        `${process.env.LLM_API_BASE_URL}/v1/chat/completions`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.TRANSLATION_API_KEY}`,
+            Authorization: `Bearer ${process.env.LLM_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -468,4 +473,38 @@ app.post("/optimize-text", async (req, res) => {
       .status(500)
       .json({ error: "Error optimizing and summarizing text" });
   }
+});
+
+app.post("/upload", upload.single("file"), async (req, res) => {
+  const file = req.file;
+  const model = req.body.model || "Systran/faster-whisper-large-v3";
+  const language = req.body.language || "zh";
+  const operation = req.body.operation || "transcription"; // 新增操作
+  const outputLanguage = req.body.outputLanguage || "fr"; // 新增输出语言
+  const responseFormat = req.body.response_format || "json";
+  const temperature = req.body.temperature || "0";
+
+  if (!file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  const filePath = file.path;
+  const audioType = file.mimetype.split("/")[1]; // 获取文件类型
+  const newFilePath = path.join(__dirname, `uploads/audio_${Date.now()}.${audioType}`);
+
+  fs.renameSync(filePath, newFilePath); // 重命名文件
+
+  await handleAudioFile(
+    newFilePath,
+    null,
+    model,
+    language,
+    responseFormat,
+    temperature,
+    operation,
+    outputLanguage,
+    true
+  );
+
+  res.json({ message: "File uploaded and processed successfully" });
 });

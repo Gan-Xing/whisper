@@ -96,36 +96,41 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
-    if (file && socketRef.current) {
+    if (file) {
       setStatus(`${dictionary.uploadingFile}: ${file.name}`);
-      const reader = new FileReader();
-      reader.readAsArrayBuffer(file);
-      reader.onloadend = () => {
-        const arrayBuffer = reader.result as ArrayBuffer;
-        if (arrayBuffer) {
-          const byteArray = new Uint8Array(arrayBuffer);
-          const bufferData = Array.from(byteArray);
-          socketRef.current!.send(
-            JSON.stringify({
-              type: "upload",
-              audio: bufferData,
-              fileType: file.type.split("/")[1],
-              model: model,
-              language: inputLanguage,
-              operation: operation, // 新增操作
-              outputLanguage:
-                operation === "translation" || operation === "conversation"
-                  ? outputLanguage
-                  : undefined, // 新增输出语言
-              response_format: "json",
-              temperature: "0",
-            })
-          );
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("model", model);
+      formData.append("language", inputLanguage);
+      formData.append("operation", operation); // 新增操作
+      if (operation === "translation" || operation === "conversation") {
+        formData.append("outputLanguage", outputLanguage); // 新增输出语言
+      }
+      formData.append("response_format", "json");
+      formData.append("temperature", "0");
+
+      try {
+        const response = await fetch("http://localhost:3001/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("Server response:", result);
           setStatus(dictionary.fileSent);
+        } else {
+          console.error("Upload failed:", response.statusText);
+          setStatus(dictionary.uploadFailed);
         }
-      };
+      } catch (error) {
+        console.error("Error during upload:", error);
+        setStatus(dictionary.uploadFailed);
+      }
     }
   };
 

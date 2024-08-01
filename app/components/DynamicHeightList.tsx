@@ -1,5 +1,4 @@
-// app/components/DynamicHeightList.tsx
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { FixedSizeList as List } from "react-window";
 import {
   Box,
@@ -13,23 +12,21 @@ import {
   TextField,
 } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import PauseIcon from "@mui/icons-material/Pause";
 import { useResizeObserver } from "@/hooks/useResizeObserver";
-import { Transcript } from "@/types";
+
+interface Transcript {
+  type: string;
+  text: string;
+  message?: string;
+  id: string;
+  audio: string;
+}
 
 interface DynamicHeightListProps {
   items: Transcript[];
-  handlePlayMessage: (
-    audio: string,
-    type: string,
-    text: string,
-    onEnded: () => void,
-    onPlayPause: (isPlaying: boolean) => void
-  ) => void;
+  handlePlayMessage: (audio: string,type:string,text:string) => void;
   handleEditMessage: (index: number, newText: string) => void;
   dictionary: any;
-  isPlaying: boolean;
-  setIsPlaying: (isPlaying: boolean) => void;
 }
 
 const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
@@ -37,14 +34,11 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
   handlePlayMessage,
   handleEditMessage,
   dictionary,
-  isPlaying,
-  setIsPlaying,
 }) => {
   const listContainerRef = useRef<HTMLDivElement>(null);
   const { height } = useResizeObserver(listContainerRef);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [currentText, setCurrentText] = useState<string>("");
-  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
 
   const handleEditClick = (index: number, text: string) => {
     setEditingIndex(index);
@@ -64,24 +58,6 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
 
   const handleClose = () => {
     setEditingIndex(null);
-  };
-
-  const handlePlayClick = (
-    index: number,
-    audio: string,
-    type: string,
-    text: string
-  ) => {
-    if (playingIndex === index) {
-      handlePlayMessage(audio, type, text, () => {
-        setPlayingIndex(null);
-      }, setIsPlaying);
-    } else {
-      setPlayingIndex(index);
-      handlePlayMessage(audio, type, text, () => {
-        setPlayingIndex(null);
-      }, setIsPlaying);
-    }
   };
 
   return (
@@ -121,19 +97,12 @@ const DynamicHeightList: React.FC<DynamicHeightListProps> = ({
                 {items[index].text}
               </Typography>
               <IconButton
-                onClick={() =>
-                  handlePlayClick(
-                    index,
-                    items[index].audio,
-                    items[index].type,
-                    items[index].text
-                  )
-                }
+                onClick={() => handlePlayMessage(items[index].audio, items[index].type, items[index].text)}
                 color="primary"
                 size="small"
                 sx={{ mr: 1.5 }}
               >
-                {playingIndex === index && isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+                <PlayArrowIcon />
               </IconButton>
             </Box>
           )}

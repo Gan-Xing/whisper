@@ -1,11 +1,12 @@
 // app/types/index.ts
 
 export interface Transcript {
-    type: string;
-    text: string;
+    type?: string;
+    text?: string;
     message?: string;
-    id: string;
-    audio: string;
+    id?: string;
+    audio?: string;
+    status?: string;
   }
   
   export interface RealTimeTranscriptionProps {
