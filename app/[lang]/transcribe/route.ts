@@ -23,9 +23,7 @@ async function handleAudioFile(
   const audioType = fileType || "webm"; // 动态确定文件扩展名
   const uploadDir = join(process.cwd(), "uploads");
   const filePath = join(uploadDir, `audio_${Date.now()}.${audioType}`);
-  const wavFilePath = filePath.replace(extname(filePath), ".wav");
-
-  console.log(audioType, filePath, wavFilePath);
+  const wavFilePath = join(uploadDir, `audio_${Date.now()}_processed.wav`);
 
   // Ensure upload directory exists
   if (!fs.existsSync(uploadDir)) {

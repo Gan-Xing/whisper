@@ -25,7 +25,7 @@ async function handleAudioFile(
   const audioType = fileType || "webm";
   const uploadDir = join(process.cwd(), "uploads");
   const filePath = join(uploadDir, `audio_${Date.now()}.${audioType}`);
-  const wavFilePath = filePath.replace(extname(filePath), ".wav");
+  const wavFilePath = join(uploadDir, `audio_${Date.now()}_processed.wav`);
 
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });

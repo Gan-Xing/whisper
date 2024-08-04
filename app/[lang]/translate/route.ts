@@ -48,16 +48,52 @@ async function translateText(
       "You are a professional, authentic machine translation engine.";
     const userPrompt = `Translate the following source text to ${outputLanguage}, Output translation directly without any additional text.\nSource Text: ${text}\nTranslated Text:`;
 
+    // const LLMResponse = await fetch(
+    //   `${LLMApiBaseUrl}/v1/chat/completions`,
+    //   {
+    //     method: "POST",
+    //     headers: {
+    //       Authorization: `Bearer ${LLMApiKey}`,
+    //       "Content-Type": "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       model: "gpt-3.5-turbo",
+    //       messages: [
+    //         {
+    //           role: "system",
+    //           content: systemPrompt,
+    //         },
+    //         {
+    //           role: "user",
+    //           content: userPrompt,
+    //         },
+    //       ],
+    //     }),
+    //   }
+    // );
+
+    // if (!LLMResponse.ok) {
+    //   const errorText = await LLMResponse.text();
+    //   console.error("LLM API response error:", errorText);
+    //   throw new Error(`LLM API Error: ${errorText}`);
+    // }
+
+    // const LLMResponseText = await LLMResponse.text();
+
+    // const LLM = JSON.parse(LLMResponseText);
+
+    // return LLM.choices[0].message.content.trim();
+
     const LLMResponse = await fetch(
-      `${LLMApiBaseUrl}/v1/chat/completions`,
+      `${LLMApiBaseUrl}/api/chat`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LLMApiKey}`,
+          // Authorization: `Bearer ${LLMApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: "qwen2:7b",
           messages: [
             {
               role: "system",
@@ -68,6 +104,7 @@ async function translateText(
               content: userPrompt,
             },
           ],
+          stream: false, // 如果你希望禁用流式响应，可以设置为 false
         }),
       }
     );
@@ -78,11 +115,8 @@ async function translateText(
       throw new Error(`LLM API Error: ${errorText}`);
     }
 
-    const LLMResponseText = await LLMResponse.text();
-
-    const LLM = JSON.parse(LLMResponseText);
-
-    return LLM.choices[0].message.content.trim();
+    const LLM = await LLMResponse.json();
+    return LLM.message.content.trim();
   } catch (error) {
     console.error("Error processing LLM:", error);
     throw new Error("Error processing LLM");
