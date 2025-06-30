@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from "uuid";
 // Load environment variables
 const ffmpegPath = process.env.FFMPEG_PATH || "/usr/bin/ffmpeg";
 const transcriptionApiBaseUrl = process.env.TRANSCRIPTION_API_BASE_URL;
+const LLMApiKey = process.env.LLM_API_KEY;
+const cloudflareApiKey = process.env.CloudFlare_API_KEY;
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -78,23 +80,50 @@ async function transcribeAudio(
 ) {
   const messageId = uuidv4();
   try {
-    const formData = new FormData();
-    formData.append("file", fs.createReadStream(chunkFilePath));
-    formData.append("model", model);
-    formData.append("language", language);
-    formData.append("response_format", responseFormat);
-    formData.append("temperature", temperature);
+    // const formData = new FormData();
+    // formData.append("file", fs.createReadStream(chunkFilePath));
 
-    const transcriptionResponse = await fetch(
-      `${transcriptionApiBaseUrl}/v1/audio/transcriptions`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    // formData.append("model", model);
+    // formData.append("language", language);
+    // formData.append("response_format", responseFormat);
+    // formData.append("temperature", temperature);
+
+
+
+
+    // const transcriptionResponse = await fetch(
+    //   `${transcriptionApiBaseUrl}`,
+    //   {
+    //     method: "POST",
+    //     headers: {
+    //       Authorization: `Bearer ${cloudflareApiKey}`,
+    //     },
+    //     body: formData,
+    //   }
+    // );
+    // const transcriptionResponse = await fetch(
+    //   `${transcriptionApiBaseUrl}/v1/audio/transcriptions`,
+    //   {
+    //     method: "POST",
+    //     body: formData,
+    //   }
+    // );
+
+
+    const audioStream = fs.createReadStream(chunkFilePath);
+    const transcriptionResponse = await fetch(`${transcriptionApiBaseUrl}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cloudflareApiKey}`,
+        "Content-Type": "application/octet-stream", 
+      },
+      body: audioStream,
+    });
 
     const transcriptionResponseText = await transcriptionResponse.text();
     const transcription = JSON.parse(transcriptionResponseText);
+
+    console.log("transcriptionResponse",transcription)
 
     // 读取wav文件并编码为base64
     const audioBuffer = fs.readFileSync(chunkFilePath);
@@ -103,7 +132,7 @@ async function transcribeAudio(
 
     const response = {
       type: "transcription",
-      text: transcription.text,
+      text: transcription.result.text,
       id: messageId,
       audio: audioBase64,
     };
@@ -150,6 +179,14 @@ export async function POST(request: NextRequest) {
       temperature,
       fileType
     );
+    // const result = await handleAudioFile(
+    //   buffer,
+    //   "whisper-1",
+    //   language,
+    //   responseFormat,
+    //   temperature,
+    //   fileType
+    // );
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
